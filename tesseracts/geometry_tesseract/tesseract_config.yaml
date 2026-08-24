@@ -1,0 +1,4 @@
+# Tesseract configuration file for Geometry & Porosity Engine
+name: geometry_tesseract
+version: 1.0.0
+entrypoint: tesseract_api.py

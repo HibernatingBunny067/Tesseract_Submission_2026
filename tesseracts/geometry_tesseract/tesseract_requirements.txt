@@ -1,0 +1,6 @@
+# Tesseract requirements for Geometry & Porosity Engine
+tesseract-core
+jax
+jaxlib
+numpy
+pydantic
