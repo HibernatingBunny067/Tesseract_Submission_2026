@@ -32,7 +32,7 @@ In orthopaedic trauma surgery, fixing femur fractures with conventional solid me
 ### The Solution: 5-Zone Functionally Graded Metamaterial Plates
 Our platform synthesizes a continuous Triply Periodic Minimal Surface (TPMS) metamaterial plate:
 - **Rigid Solid Ends (Proximal & Distal)**: Thick struts and high metal density to provide solid anchorage for bicortical locking screws.
-- **Compliant Porous Bridge**: Tuned microscopic lattice directly over the fracture gap to deliver the exact target micro-motion (e.g., 0.20 mm) while preserving $\ge 55\%$ of natural cortical load transfer.
+- **Compliant Porous Bridge**: Tuned microscopic lattice directly over the fracture gap to deliver the exact target micro-motion (e.g., 0.20 mm) while preserving >= 55% of natural cortical load transfer.
 
 ---
 
@@ -51,6 +51,7 @@ Our platform synthesizes a continuous Triply Periodic Minimal Surface (TPMS) met
   │    • Target Micro-Motion: 0.12 mm                                           │
   │    • Material Choice: Ti-6Al-4V ELI (Grade 5)                               │
   │    • Metamaterial Topology: Schwarz Diamond (D)                             │
+  │    • Screw Pitch & Corner Fillet Radius Dynamic Auto-Extraction             │
   └──────────────────────────────────────┬──────────────────────────────────────┘
                                          │
                                          ▼
@@ -61,6 +62,7 @@ Our platform synthesizes a continuous Triply Periodic Minimal Surface (TPMS) met
   │    │ (Port 8000 · JAX-FEM + SuperLU)   │ │ (Port 8001 · Differentiable SDF)│ │
   │    │ • 5,951 TET10 Cells (29,571 DOFs) │ │ • Continuous 3D Volume Integral│ │
   │    │ • Exact VJP Gradients in O(1) time│ │ • True Physical Lattice Density│ │
+  │    │ • Spatial Modulus Homogenization  │ │ • Dynamic Pitch & Fillet SDF   │ │
   │    └───────────────────────────────────┘ └────────────────────────────────┘ │
   │    • Warmup-Stable-Decay (WSD) Adam Optimizer converges in 10-15 steps      │
   └──────────────────────────────────────┬──────────────────────────────────────┘
@@ -70,7 +72,7 @@ Our platform synthesizes a continuous Triply Periodic Minimal Surface (TPMS) met
   │ 4. AUTOMATED IN-SILICO VERIFICATION BATTERY                                 │
   │    • ASTM F382: Fracture micro-motion target verification (±15% band)       │
   │    • Wolff's Law Index: Cortical stress shielding preservation ≥ 55.0%      │
-  │    • ASTM F382 Static Proof Test: Yield Safety Factor S_f ≥ 1.50            │
+  │    • ASTM F382 Static Proof Test: Yield Safety Factor FoS ≥ 1.50x           │
   │    • ISO 7206: Cyclic fatigue endurance margin at 10^6 gait cycles          │
   └──────────────────────────────────────┬──────────────────────────────────────┘
                                          │
@@ -109,23 +111,24 @@ Our platform synthesizes a continuous Triply Periodic Minimal Surface (TPMS) met
    - Total Length: **160.0 mm** (16.0 cm).
    - Outer Cortical Diameter: **24.0 mm** (Radius = 12.0 mm).
    - Inner Marrow Diameter: **16.0 mm** (Radius = 8.0 mm).
-   - Cortical Wall Thickness: **4.0 mm** of solid cortical bone ($E = 18.0\,\text{GPa}$).
-   - Fracture Gap Width: **2.0 mm** ($x = 79.0\,\text{mm} \to 81.0\,\text{mm}$, $E = 1.0\,\text{MPa}$).
-2. **Implant Fixation Plate & Sandwich Architecture**:
-   - Total Length: **100.0 mm** (Standard 6-hole anatomical locking plate spanning $x = 30.0\,\text{mm} \to 130.0\,\text{mm}$).
-   - Plate Width: **16.0 mm** ($z = -8.0\,\text{mm} \to +8.0\,\text{mm}$).
-   - Plate Thickness: **6.0 mm** ($y = 11.0\,\text{mm} \to 17.0\,\text{mm}$).
-   - **Solid Cortex Skin Shell (0.20 - 1.0 mm)**: Outer top, bottom, and lateral surfaces are maintained as solid metal to prevent muscle/soft tissue adhesion and ensure smooth cortical bone seating.
-   - **Internal TPMS Porous Core**: Houses the continuous minimal surface lattice directly inside the sandwich bridge over the fracture gap.
-   - **6-Hole AO LCP Fixation Screws**: Six 4.5 mm cylindrical through-holes (radius = 2.25 mm) positioned at $x = [35.0, 50.0, 65.0, 95.0, 110.0, 125.0]\,\text{mm}$ with top countersink chamfers.
+   - Cortical Wall Thickness: **4.0 mm** of solid cortical bone (E = 18.0 GPa).
+   - Fracture Gap Width: **2.0 mm** (x = 79.0 mm to 81.0 mm, E = 1.0 MPa).
+2. **Implant Fixation Plate & 3-Layer Sandwich Architecture**:
+   - Total Length: **100.0 mm** (Standard 6-hole anatomical locking plate spanning x = 30.0 mm to 130.0 mm).
+   - Plate Width: **16.0 mm** (z = -8.0 mm to +8.0 mm).
+   - Total Plate Depth: **6.0 mm** (y = 11.0 mm to 17.0 mm).
+   - **Solid Outer Skins (0.15 mm - 2.0 mm, Default 0.50 mm)**: Independent top (muscle-facing) and bottom (bone-contacting) solid titanium layers provide structural flexural resistance and eliminate soft-tissue adhesion.
+   - **Internal TPMS Porous Core**: Continuous triply periodic minimal surface metamaterial core spanning h_tpms = 6.0 mm - (t_top + t_bottom).
+   - **Differentiable Top Corner Filleting (0.4 mm - 2.5 mm, Default 1.2 mm)**: Smooth anatomical chamfers eliminate soft-tissue irritation.
+   - **Dynamic 6-Hole Standard AO LCP Screw Spacing (10.0 mm - 16.0 mm, Default 14.5 mm)**: Center-to-center pitch optimized via reverse-mode adjoint gradients with hard barriers preventing screws from entering the fracture span or exceeding plate margins.
    - Metamaterial Unit Cell Size: **3.5 mm – 7.5 mm** (default 5.0 mm).
 3. **Finite Element Discretization**:
    - Total Elements: **5,951 cells** (quadratic 10-node tetrahedrons / TET10).
-   - Total Degrees of Freedom: **9,857 nodes $\times$ 3 = 29,571 DOFs**.
+   - Total Degrees of Freedom: **9,857 nodes x 3 = 29,571 DOFs**.
    - Mesh Conformance: Shared interface nodes representing fixed-angle bicortical locking screws (Locking Compression Plate / LCP principle).
 4. **Boundary Conditions & Joint Loading**:
    - Proximal End (Hip): Rigidly clamped (cantilever fixity).
-   - Distal End (Knee): Subjected to vertical downward ground reaction traction ($-1.0\,\text{MPa}$, simulating single-leg stance during walking gait).
+   - Distal End (Knee): Subjected to vertical downward ground reaction traction (-1.0 MPa, simulating single-leg stance during walking gait).
 
 ---
 
@@ -135,7 +138,7 @@ The system modularizes physics simulation and geometry synthesis into two indepe
 
 | Microservice | Port | Implementation | Core Capabilities |
 | :--- | :--- | :--- | :--- |
-| **`fem_tesseract`** | **8000** | JAX-FEM + SciPy SuperLU | Forward FEM solve, nodal displacement extraction, 3D relative osteotomy micro-motion, compliance energy, and reverse-mode adjoint VJP $\partial L / \partial \theta$. |
+| **`fem_tesseract`** | **8000** | JAX-FEM + SciPy SuperLU | Forward FEM solve, nodal displacement extraction, 3D relative osteotomy micro-motion, compliance energy, spatial modulus homogenization, and reverse-mode adjoint VJP dL/d_theta. |
 | **`geometry_tesseract`** | **8001** | NumPy + Marching Cubes SDF | Differentiable 3D SDF synthesis, analytical unit-cell level-set porosity evaluation, volume-integrated mass fraction, and binary STL CAD export. |
 
 ---
@@ -156,7 +159,7 @@ By configuring `SOLVER_OPTIONS` and `ADJOINT_SOLVER_OPTIONS` to use native C Sup
 
 ## 6. Multi-TPMS Metamaterial Formulations
 
-The implant lattice is governed by Triply Periodic Minimal Surface (TPMS) level sets $F(x,y,z) - \tau(x) = 0$:
+The implant lattice is governed by Triply Periodic Minimal Surface (TPMS) level sets `F(x,y,z) - tau(x) = 0`:
 
 ```
                           THREE TPMS ARCHITECTURES
@@ -170,31 +173,31 @@ The implant lattice is governed by Triply Periodic Minimal Surface (TPMS) level 
   └─────────────────────────┘    └─────────────────────────┘  └─────────────────────────┘
 ```
 
-### Mathematical Level-Set Equations ($k = 2\pi / \text{cell\_size}$):
+### Mathematical Level-Set Equations (k = 2 * pi / cell_size):
 1. **Schwarz Primitive (P)** *(High Vascularization & Fluid Permeability)*:
-   $$F_P(x,y,z) = \cos(kx) + \cos(ky) + \cos(kz)$$
+   `F_P(x, y, z) = cos(kx) + cos(ky) + cos(kz)`
 2. **Schoen Gyroid (G)** *(Superior Shear Strength & Energy Absorption)*:
-   $$F_G(x,y,z) = 1.5 \cdot (\sin(kx)\cos(ky) + \sin(ky)\cos(kz) + \sin(kz)\cos(kx))$$
+   `F_G(x, y, z) = 1.5 * (sin(kx)*cos(ky) + sin(ky)*cos(kz) + sin(kz)*cos(kx))`
 3. **Schwarz Diamond (D)** *(Maximum Torsional Stiffness & Multi-Axial Rigidity)*:
-   $$F_D(x,y,z) = 1.8 \cdot (\cos(kx)\cos(ky)\cos(kz) - \sin(kx)\sin(ky)\sin(kz))$$
+   `F_D(x, y, z) = 1.8 * (cos(kx)*cos(ky)*cos(kz) - sin(kx)*sin(ky)*sin(kz))`
 
 ### Continuous 5-Zone Partition of Unity:
-The local density threshold $\tau(x)$ is blended continuously across 5 anatomical zones:
-$$\tau(x) = \frac{\sum_{i=1}^5 \tau_i w_i(x)}{\sum_{i=1}^5 w_i(x)}$$
-- **Zone 1 ($x = 35\,\text{mm}$)**: Far Proximal Screw Anchor (Dense metal).
-- **Zone 2 ($x = 57\,\text{mm}$)**: Proximal Stress Transition (Graded compliance).
-- **Zone 3 ($x = 80\,\text{mm}$)**: Fracture Bridge Gap Center (Porous & compliant).
-- **Zone 4 ($x = 103\,\text{mm}$)**: Distal Stress Transition (Graded compliance).
-- **Zone 5 ($x = 125\,\text{mm}$)**: Far Distal Screw Anchor (Dense metal).
-- **Gaussian Kernel**: $w_i(x) = \exp\left( - \left(\frac{x - x_i}{\sigma_{\text{blend}}}\right)^2 \right)$ where $\sigma_{\text{blend}}$ is optimized dynamically.
+The local density threshold `tau(x)` is blended continuously across 5 anatomical zones:
+`tau(x) = sum(tau_i * w_i(x)) / sum(w_i(x))`
+- **Zone 1 (x = 35 mm)**: Far Proximal Screw Anchor (Dense metal).
+- **Zone 2 (x = 57 mm)**: Proximal Stress Transition (Graded compliance).
+- **Zone 3 (x = 80 mm)**: Fracture Bridge Gap Center (Porous & compliant).
+- **Zone 4 (x = 103 mm)**: Distal Stress Transition (Graded compliance).
+- **Zone 5 (x = 125 mm)**: Far Distal Screw Anchor (Dense metal).
+- **Gaussian Kernel**: `w_i(x) = exp(-((x - x_i) / sigma_blend)^2)` where `sigma_blend` is optimized dynamically.
 
 ### Physical Level-Set Porosity & GA Modulus Scaling:
-For Schwarz-P surfaces, the level set threshold $\tau \in [0.10, 1.45]$ maps to true unit-cell lattice porosity:
-$$\text{Porosity}(\tau) = 54.7\% + \left(\frac{\tau - 0.10}{1.35}\right) \cdot (88.1\% - 54.7\%)$$
+For Schwarz-P surfaces, the level set threshold `tau` in `[0.10, 1.45]` maps to true unit-cell lattice porosity:
+`Porosity(tau) = 54.7% + ((tau - 0.10) / 1.35) * (88.1% - 54.7%)`
 
 Using material-specific Gibson-Ashby scaling:
-$$E_{\text{eff}}(\tau) = E_{\text{solid}} \cdot (1.0 - \text{Porosity})^{\gamma}$$
-where $\gamma = 1.60$ for Ti-6Al-4V and $\gamma = 1.55$ for 316L Stainless Steel.
+`E_eff(tau) = E_solid * (1.0 - Porosity)^gamma`
+where `gamma = 1.60` for Ti-6Al-4V and `gamma = 1.55` for 316L Stainless Steel.
 
 ---
 
@@ -211,15 +214,15 @@ Learning Rate (eta)
        0        Warmup (3 steps)    Stable (75%)     Precision Decay (25%)
 ```
 
-- **Warmup Phase (Steps 1–3)**: Ramps $\eta$ from $0.03 \to 0.09$ to build momentum without gradient shocks.
-- **Stable Plateau Phase (Steps 4–75% Max)**: Holds at peak $\eta = 0.09$ with fast-adapting Adam ($\beta_1=0.85, \beta_2=0.98, \text{clip}=0.12$).
-- **Precision Anneal Phase (Final 25% Steps)**: Cosine-decays to $\eta_{\text{min}} = 0.015$ to lock onto the exact target micro-motion within $\pm 0.005\,\text{mm}$.
+- **Warmup Phase (Steps 1–3)**: Ramps learning rate from 0.03 to 0.09 to build momentum without gradient shocks.
+- **Stable Plateau Phase (Steps 4–75% Max)**: Holds at peak learning rate 0.09 with fast-adapting Adam (beta1=0.85, beta2=0.98, clip=0.12).
+- **Precision Anneal Phase (Final 25% Steps)**: Cosine-decays to eta_min = 0.015 to lock onto the exact target micro-motion within +-0.005 mm.
 
 ---
 
 ## 8. Certified Biomaterials Database
 
-| Biomaterial | Elastic Modulus (GPa) | Density (g/cm³) | Yield Strength (MPa) | Fatigue Limit ($10^6$ cycles) | Gibson-Ashby Exponent ($\gamma$) | Clinical Indication |
+| Biomaterial | Elastic Modulus (GPa) | Density (g/cm³) | Yield Strength (MPa) | Fatigue Limit (10^6 cycles) | Gibson-Ashby Exponent (gamma) | Clinical Indication |
 |---|---|---|---|---|---|---|
 | **Ti-6Al-4V ELI (Grade 5 Titanium)** | 110.0 | 4.43 | 880 | 510 | 1.60 | Standard gold-standard trauma plate with superior osseointegration |
 | **316L Stainless Steel** | 193.0 | 8.00 | 220 | 200 | 1.55 | Cost-effective, high-ductility clinical standard trauma fixation |
@@ -232,20 +235,20 @@ Every generated implant is automatically validated against international standar
 
 | Verification Test | Testing Standard | Passing Criteria | Clinical Rationale |
 |---|---|---|---|
-| **Micro-Motion Target Test** | ASTM F382 / AO Foundation | Within $\pm 15\%$ of target | Verifies optimal strain window for periosteal callus formation |
-| **Stress Shielding Mitigation** | Wolff's Law Biomechanical Index | $\ge 55.0\%$ cortical load preservation | Prevents cortical bone resorption and osteopenia |
-| **Static 4-Point Bending Proof** | ASTM F382 Static Bending | Safety factor $S_f \ge 1.50$ | Prevents permanent plate plastic deformation under single-leg stance |
-| **Cyclic Fatigue Endurance** | ISO 7206 Dynamic Fatigue | $\ge 1.20\text{x}$ Endurance Margin | Guarantees survival over 1,000,000 ambulatory gait cycles |
+| **Micro-Motion Target Test** | ASTM F382 / AO Foundation | Within +-15% of target | Verifies optimal strain window for periosteal callus formation |
+| **Stress Shielding Mitigation** | Wolff's Law Biomechanical Index | >= 55.0% cortical load preservation | Prevents cortical bone resorption and osteopenia |
+| **Static 4-Point Bending Proof** | ASTM F382 Static Bending | Safety factor FoS >= 1.50x | Prevents permanent plate plastic deformation under single-leg stance |
+| **Cyclic Fatigue Endurance** | ISO 7206 Dynamic Fatigue | >= 1.20x Endurance Margin | Guarantees survival over 1,000,000 ambulatory gait cycles |
 
 ---
 
-## 10. Marked 3D Coordinate Visualizer
+## 10. Marked 3D Coordinate Visualizer & Stress Contours
 
 The 3D interactive viewport displays full continuum meshes with marked, scaled coordinate axes in physical millimeters:
 
-- 🔵 **$X$-Axis (`#38bdf8` Cyan)**: **`X: Length / Shaft Axis (mm)`** ($0\,\text{mm} \to 160\,\text{mm}$, with osteotomy gap marked at $X = 80\,\text{mm}$).
-- 🟢 **$Y$-Axis (`#4ade80` Green)**: **`Y: Plate Depth (mm)`** ($0\,\text{mm} \to 20\,\text{mm}$, indicating the $6.0\,\text{mm}$ plate sandwich thickness).
-- 🟣 **$Z$-Axis (`#a78bfa` Purple)**: **`Z: Width (mm)`** ($-12\,\text{mm} \to +12\,\text{mm}$, indicating the $16\,\text{mm}$ transverse plate width).
+- 🔵 **X-Axis (`#38bdf8` Cyan)**: **`X: Length / Shaft Axis (mm)`** (0 mm to 160 mm, with osteotomy gap marked at X = 80 mm).
+- 🟢 **Y-Axis (`#4ade80` Green)**: **`Y: Plate Depth (mm)`** (0 mm to 20 mm, indicating the 6.0 mm plate sandwich thickness).
+- 🟣 **Z-Axis (`#a78bfa` Purple)**: **`Z: Width (mm)`** (-12 mm to +12 mm, indicating the 16 mm transverse plate width).
 - **Dual Visual Modes**: Seamlessly toggle between **3D Von Mises Stress Heatmap (MPa)** and **3D Factor of Safety (FoS) Field** with ASTM proof safety badges.
 
 ---

@@ -6,6 +6,7 @@ import streamlit as st
 import numpy as np
 import pandas as pd
 import logging
+from typing import Tuple, Optional, Dict, Any, List
 
 sys.path.insert(0, os.path.abspath(os.path.dirname(__file__)))
 
@@ -13,7 +14,7 @@ import jax
 import jax.numpy as jnp
 jax.config.update('jax_enable_x64', True)
 
-# faltu ke warnings chup karao taaki terminal clean rahe
+# Suppress non-critical library logs to maintain clean runtime output
 logging.getLogger("jax_fem").setLevel(logging.ERROR)
 logging.getLogger("uvicorn").setLevel(logging.ERROR)
 logging.getLogger("httpx").setLevel(logging.WARNING)
@@ -21,12 +22,12 @@ os.environ["JAX_FEM_LOG_LEVEL"] = "ERROR"
 os.environ["TESSERACT_OUTPUT_PATH"] = "/tmp/tesseract_runs"
 os.environ["MLFLOW_TRACKING_URI"] = "file:///tmp/mlruns"
 
-from src.agent.agent import parse_design_request
+from src.agent.agent import parse_design_request, DesignRequest
 from src.agent.optimize import run_optimization
 from src.geometry.plot_plotly import get_mesh_plotly_fig, get_von_mises_plotly_fig, generate_tpms_stl_bytes
 from src.fem.forward import solve_fem
 from src.fem.problem import compute_nodal_von_mises_stress
-from src.fem.materials import BIOMATERIALS
+from src.fem.materials import BIOMATERIALS, Biomaterial
 from src.fem.validation import run_insilico_validation_suite
 from src.ui import build_css
 from src.ui.components import (
@@ -48,24 +49,16 @@ from src.ui.charts import (
 import subprocess, atexit
 import tesseract_core as tc
 
-# TODO
-# Adam -> LBFGS
-# Thickness as parameter
-# Envelope 
-# Two tesseracts compulsoraly
-
-
-
 # Dual Tesseract microservices background launcher
 @st.cache_resource
-def start_dual_tesseract_servers():
-    fem_path = os.path.join(os.path.dirname(__file__), "tesseracts", "fem_tesseract", "tesseract_server.py")
-    geom_path = os.path.join(os.path.dirname(__file__), "tesseracts", "geometry_tesseract", "tesseract_server.py")
+def start_dual_tesseract_servers() -> Tuple[subprocess.Popen, subprocess.Popen]:
+    fem_path: str = os.path.join(os.path.dirname(__file__), "tesseracts", "fem_tesseract", "tesseract_server.py")
+    geom_path: str = os.path.join(os.path.dirname(__file__), "tesseracts", "geometry_tesseract", "tesseract_server.py")
     
-    proc_fem = subprocess.Popen([sys.executable, fem_path], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
-    proc_geom = subprocess.Popen([sys.executable, geom_path], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+    proc_fem: subprocess.Popen = subprocess.Popen([sys.executable, fem_path], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+    proc_geom: subprocess.Popen = subprocess.Popen([sys.executable, geom_path], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
     
-    def _shutdown():
+    def _shutdown() -> None:
         for p in [proc_fem, proc_geom]:
             try:
                 p.terminate()
@@ -85,14 +78,14 @@ server_fem_proc, server_geom_proc = start_dual_tesseract_servers()
 
 st.set_page_config(page_title="Tesseract BioMechanics", page_icon="🦴", layout="wide", initial_sidebar_state="expanded")
 
-# Theme ka custom CSS lagao
+# Inject custom CSS styling
 st.markdown(build_css(), unsafe_allow_html=True)
 
-# Main mast sa hero banner chipkao
+# Main hero banner
 st.markdown(
     hero_banner(
         title="🦴 Tesseract Differentiable Simulation",
-        subtitle="Agentic Biomechanical Implant Optimization · Dual Tesseract REST Engines · Hybrid Adam + L-BFGS",
+        subtitle="Agentic Biomechanical Implant Optimization · Dual Tesseract REST Engines · WSD Adam Optimizer",
         accent_word="Differentiable Simulation",
     ),
     unsafe_allow_html=True,
@@ -113,19 +106,19 @@ st.markdown(
 
 from src.agent.agent import parse_design_request
 
-# Sidebar me doctor ke presets aur material inputs
+# Clinical preset definitions
 st.sidebar.markdown("### 🤖 Agentic NLP Interface")
 
-CLINICAL_PRESETS = {
+CLINICAL_PRESETS: Dict[str, str] = {
     "Callus Stimulation (Default)": "I need a compliant Titanium plate that allows 0.2mm of micro-motion at the fracture site to stimulate callus formation, while keeping the implant as light as possible.",
     "Elderly Osteoporotic Patient": "I need a highly porous Titanium plate for an elderly osteoporotic patient that allows 0.30mm of micro-motion, minimizing stress shielding and maximizing porosity.",
     "Young Athlete High-Impact Trauma": "I need a rigid, high-strength Stainless Steel plate for a young athlete that restricts micro-motion to 0.12mm to ensure stable fixation.",
     "Cost-Effective Trauma Fixation": "I need an affordable, cost-effective 316L Stainless Steel plate that maintains 0.18mm micro-motion with high ductility."
 }
 
-# Preset change hone par prompt update karo
-def on_preset_change():
-    selected = st.session_state.get("preset_select", "")
+# Synchronize prompt area when preset selection changes
+def on_preset_change() -> None:
+    selected: str = st.session_state.get("preset_select", "")
     if selected in CLINICAL_PRESETS:
         st.session_state.prompt_area = CLINICAL_PRESETS[selected]
         st.session_state.parsed_req = parse_design_request(st.session_state.prompt_area)
@@ -148,16 +141,21 @@ user_prompt = st.sidebar.text_area(
     height=120
 )
 
-if "parsed_req" not in st.session_state or st.session_state.parsed_req is None:
+if "last_parsed_prompt" not in st.session_state:
+    st.session_state.last_parsed_prompt = None
+
+if st.session_state.last_parsed_prompt != user_prompt or "parsed_req" not in st.session_state or st.session_state.parsed_req is None:
     st.session_state.parsed_req = parse_design_request(user_prompt)
+    st.session_state.last_parsed_prompt = user_prompt
 
 if "run_history" not in st.session_state:
     st.session_state.run_history = []
 
-if st.sidebar.button("⚡ Parse Natural Language Prompt", use_container_width=True):
+if st.sidebar.button("⚡ Re-Parse Prompt", width="stretch"):
     with st.spinner("Agent interpreting biomechanical prompt…"):
-        time.sleep(0.3)
+        time.sleep(0.2)
         st.session_state.parsed_req = parse_design_request(user_prompt)
+        st.session_state.last_parsed_prompt = user_prompt
 
 req = st.session_state.parsed_req
 if req:
@@ -190,7 +188,7 @@ t_top_mm = st.sidebar.slider(
     "Top Solid Plate Thickness (t_top, mm)",
     min_value=0.15,
     max_value=2.00,
-    value=0.20,
+    value=0.50,
     step=0.05,
     help="Periosteal / muscle-facing solid titanium layer (y in [18-t_top, 18] mm)."
 )
@@ -198,7 +196,7 @@ t_bot_mm = st.sidebar.slider(
     "Bottom Solid Plate Thickness (t_bottom, mm)",
     min_value=0.15,
     max_value=2.00,
-    value=0.20,
+    value=0.50,
     step=0.05,
     help="Bone-contacting solid titanium layer (y in [11, 11+t_bot] mm)."
 )
@@ -259,7 +257,7 @@ opt_max_steps = st.sidebar.slider(
 )
 enable_early_stopping = st.sidebar.checkbox("Enable Early Convergence Stopping", value=True)
 
-# Material select karo, default me LLM ka suggested wala aayega
+# Target biomaterial specification
 mat_keys = list(BIOMATERIALS.keys())
 default_mat_idx = mat_keys.index(req.recommended_material) if (req and req.recommended_material in mat_keys) else 0
 
@@ -268,7 +266,7 @@ selected_material_name = st.sidebar.selectbox("Target Fixation Material", mat_ke
 selected_material = BIOMATERIALS[selected_material_name]
 st.sidebar.markdown(material_card(selected_material), unsafe_allow_html=True)
 
-# Minimal surface structure select karo, default LLM wala setting
+# Minimal surface metamaterial topology selection
 tpms_options = [
     "Schwarz Primitive (P) · High Permeability",
     "Schoen Gyroid (G) · High Shear Strength",
@@ -298,7 +296,7 @@ else:
 st.sidebar.markdown("---")
 st.sidebar.caption("Powered by **Tesseract Core** · JAX-FEM · PETSc")
 
-# Upar wala section: 2 columns me geometry preview aur live optimization dashboard
+# Top viewport: Geometry preview (left) and Live optimization telemetry (right)
 mesh_path = os.path.join(os.path.dirname(__file__), "src", "fem", "data", "model.msh")
 col_geo, col_opt = st.columns([1, 1], gap="large")
 
@@ -313,13 +311,12 @@ with col_geo:
                 fillet_radius=fillet_radius_m,
                 screw_spacing=screw_spacing_m
             ),
-            use_container_width=True,
+            width="stretch",
             key="geo_base"
         )
     else:
         st.warning("No mesh found. Run the mesh generator first.")
 
-# Optimization khatam hua ya nahi check karne ke liye flag
 optimization_finished = False
 opt_results = {}
 
@@ -327,7 +324,7 @@ with col_opt:
     st.markdown(section_label("🧪", "Tesseract Differentiable Optimization Engine"), unsafe_allow_html=True)
 
     if req:
-        start_button = st.button("🚀 Start JAX-FEM Adjoint Optimization", use_container_width=True)
+        start_button = st.button("🚀 Start JAX-FEM Adjoint Optimization", width="stretch")
 
         progress_ph = st.empty()
         status_ph   = st.empty()
@@ -364,6 +361,7 @@ with col_opt:
                 "∂L/∂σ_blend": [],
                 "∂L/∂t_top": [],
                 "∂L/∂t_bottom": [],
+                "∂L/∂s_pitch": [],
                 "∂L/∂L_bridge": [],
                 "∂L/∂d_cell": [],
                 "∂L/∂r_fillet": []
@@ -393,6 +391,7 @@ with col_opt:
                 max_mass=req.max_mass,
                 material_modulus_gpa=selected_material.youngs_modulus_gpa,
                 tpms_ga_exponent=selected_material.tpms_ga_exponent,
+                yield_strength_mpa=selected_material.yield_strength_mpa,
                 init_cell_size=cell_size_m,
                 init_t_top=t_top_m,
                 init_t_bot=t_bot_m,
@@ -419,6 +418,9 @@ with col_opt:
                     t_bot_m = t_bot_mm / 1000.0
                 if "h_tpms_mm" in state:
                     h_tpms_mm = state["h_tpms_mm"]
+                if "screw_spacing_mm" in state:
+                    screw_spacing_mm = state["screw_spacing_mm"]
+                    screw_spacing_m = screw_spacing_mm / 1000.0
                 if "bridge_span_mm" in state:
                     bridge_span_mm = state["bridge_span_mm"]
                     bridge_span_m = bridge_span_mm / 1000.0
@@ -443,6 +445,7 @@ with col_opt:
                 grad_history["∂L/∂σ_blend"].append(state.get("grad_sigma", 0.0))
                 grad_history["∂L/∂t_top"].append(state.get("grad_t_top", 0.0))
                 grad_history["∂L/∂t_bottom"].append(state.get("grad_t_bot", 0.0))
+                grad_history["∂L/∂s_pitch"].append(state.get("grad_pitch", 0.0))
                 grad_history["∂L/∂L_bridge"].append(state.get("grad_bridge_span", 0.0))
                 grad_history["∂L/∂d_cell"].append(state.get("grad_cell_size", 0.0))
                 grad_history["∂L/∂r_fillet"].append(state.get("grad_fillet", 0.0))
@@ -451,17 +454,16 @@ with col_opt:
 
                 progress_ph.progress(
                     min((state["step"] + 1) / opt_max_steps, 1.0),
-                    text=f"Step {state['step']+1}/{opt_max_steps} · ⚡ Adam (Cosine Annealed) · Loss: {state['loss']:.2f} · Fillet: {fillet_radius_mm:.2f}mm · Bridge: {bridge_span_mm:.1f}mm · Core: {h_tpms_mm:.2f}mm · Motion: {state['frac_disp']*1000:.3f}mm"
+                    text=f"Step {state['step']+1}/{opt_max_steps} · ⚡ Adam · Loss: {state['loss']:.2f} · Pitch: {screw_spacing_mm:.1f}mm · Bridge: {bridge_span_mm:.1f}mm · Core: {h_tpms_mm:.2f}mm · Motion: {state['frac_disp']*1000:.3f}mm"
                 )
                 
-                loss_ph.plotly_chart(create_loss_tracking_fig(loss_history), use_container_width=True)
-                disp_ph.plotly_chart(create_disp_tracking_fig(disp_history, target_mm), use_container_width=True)
+                loss_ph.plotly_chart(create_loss_tracking_fig(loss_history), width="stretch")
+                disp_ph.plotly_chart(create_disp_tracking_fig(disp_history, target_mm), width="stretch")
                 status_ph.markdown(StatusBadge.for_displacement(disp_history[-1], target_mm), unsafe_allow_html=True)
-                porosity_ph.plotly_chart(create_porosity_tracking_fig(porosity_history, target_porosity_pct=(1.0 - req.max_mass)*100.0), use_container_width=True)
-                grad_ph.plotly_chart(create_gradient_tracking_fig(grad_history), use_container_width=True)
+                porosity_ph.plotly_chart(create_porosity_tracking_fig(porosity_history, target_porosity_pct=(1.0 - req.max_mass)*100.0), width="stretch")
+                grad_ph.plotly_chart(create_gradient_tracking_fig(grad_history), width="stretch")
 
             progress_ph.empty()
-            # Aage detailed views render karne ke liye result pack karo
             optimization_finished = True
             opt_results = {
                 "last_tau": last_tau,
@@ -477,14 +479,14 @@ with col_opt:
                 "target_mm": target_mm
             }
 
-            # Session state me save karo taaki click karne par gayab na ho
+            # Persist optimization telemetry in session state
             st.session_state.last_loss_history = loss_history
             st.session_state.last_disp_history = disp_history
             st.session_state.last_porosity_history = porosity_history
             st.session_state.last_grad_history = grad_history
             st.session_state.last_opt_results = opt_results
             
-            # Session history table me ek aur row jod do
+            # Append run record to session history
             solid_mass = 64.0 * (selected_material.density_g_cm3 / 4.43)
             optimized_mass = solid_mass * (1.0 - (opt_results["avg_porosity"] / 100.0) * 0.85)
             
@@ -500,24 +502,23 @@ with col_opt:
             })
             st.balloons()
         else:
-            # Agar purana run hai toh wahi dikhao, nahi toh default dotted target line wala graph dikhao
             target_mm = req.target_fracture_displacement * 1000
             if "last_loss_history" in st.session_state and st.session_state.last_loss_history:
-                loss_ph.plotly_chart(create_loss_tracking_fig(st.session_state.last_loss_history), use_container_width=True)
-                disp_ph.plotly_chart(create_disp_tracking_fig(st.session_state.last_disp_history, target_mm), use_container_width=True)
+                loss_ph.plotly_chart(create_loss_tracking_fig(st.session_state.last_loss_history), width="stretch")
+                disp_ph.plotly_chart(create_disp_tracking_fig(st.session_state.last_disp_history, target_mm), width="stretch")
                 status_ph.markdown(StatusBadge.for_displacement(st.session_state.last_disp_history[-1], target_mm), unsafe_allow_html=True)
-                porosity_ph.plotly_chart(create_porosity_tracking_fig(st.session_state.last_porosity_history, target_porosity_pct=(1.0 - req.max_mass)*100.0), use_container_width=True)
-                grad_ph.plotly_chart(create_gradient_tracking_fig(st.session_state.last_grad_history), use_container_width=True)
+                porosity_ph.plotly_chart(create_porosity_tracking_fig(st.session_state.last_porosity_history, target_porosity_pct=(1.0 - req.max_mass)*100.0), width="stretch")
+                grad_ph.plotly_chart(create_gradient_tracking_fig(st.session_state.last_grad_history), width="stretch")
             else:
-                loss_ph.plotly_chart(create_loss_tracking_fig([120.0]), use_container_width=True)
-                disp_ph.plotly_chart(create_disp_tracking_fig([0.018], target_mm), use_container_width=True)
+                loss_ph.plotly_chart(create_loss_tracking_fig([120.0]), width="stretch")
+                disp_ph.plotly_chart(create_disp_tracking_fig([0.018], target_mm), width="stretch")
                 status_ph.markdown(StatusBadge.for_displacement(0.018, target_mm), unsafe_allow_html=True)
-                porosity_ph.plotly_chart(create_porosity_tracking_fig({"Prox Anchor (%)": [12.0], "Bridge Gap (%)": [15.0], "Dist Anchor (%)": [12.0]}, target_porosity_pct=(1.0 - req.max_mass)*100.0), use_container_width=True)
-                grad_ph.plotly_chart(create_gradient_tracking_fig({"∂L/∂τ_p_anc": [0.0], "∂L/∂τ_p_tra": [0.0], "∂L/∂τ_bridge": [0.0], "∂L/∂τ_d_tra": [0.0], "∂L/∂τ_d_anc": [0.0], "∂L/∂σ_blend": [0.0], "∂L/∂t_top": [0.0], "∂L/∂t_bottom": [0.0], "∂L/∂L_bridge": [0.0], "∂L/∂d_cell": [0.0], "∂L/∂r_fillet": [0.0]}), use_container_width=True)
+                porosity_ph.plotly_chart(create_porosity_tracking_fig({"Prox Anchor (%)": [12.0], "Bridge Gap (%)": [15.0], "Dist Anchor (%)": [12.0]}, target_porosity_pct=(1.0 - req.max_mass)*100.0), width="stretch")
+                grad_ph.plotly_chart(create_gradient_tracking_fig({"∂L/∂τ_p_anc": [0.0], "∂L/∂τ_p_tra": [0.0], "∂L/∂τ_bridge": [0.0], "∂L/∂τ_d_tra": [0.0], "∂L/∂τ_d_anc": [0.0], "∂L/∂σ_blend": [0.0], "∂L/∂t_top": [0.0], "∂L/∂t_bottom": [0.0], "∂L/∂L_bridge": [0.0], "∂L/∂d_cell": [0.0], "∂L/∂r_fillet": [0.0]}), width="stretch")
     else:
-        st.info("👈 Pehle sidebar se prompt parse karo fir optimization run hoga.")
+        st.info("👈 Please parse a clinical prompt to initialize optimization parameters.")
 
-# Niche wala pura horizontal space detailed results aur report ke liye
+# Performance metrics and verification report section
 current_results = st.session_state.get("last_opt_results", None)
 
 if current_results is not None and current_results.get("last_tau") is not None:
@@ -543,7 +544,7 @@ if current_results is not None and current_results.get("last_tau") is not None:
     st.markdown(section_label("📊", "Final Biomechanical Performance Metrics"), unsafe_allow_html=True)
     st.markdown(metric_tiles(final_disp_mm, target_disp, avg_porosity), unsafe_allow_html=True)
 
-    # 2. Automated in-silico testing aur ASTM safety verification report
+    # Automated in-silico testing and ASTM verification suite
     st.markdown(section_label("🧪", "Automated In-Silico Testing & Clinical Verification Suite"), unsafe_allow_html=True)
     validation_report = run_insilico_validation_suite(
         tau_values=last_tau,
@@ -555,7 +556,7 @@ if current_results is not None and current_results.get("last_tau") is not None:
     )
     st.markdown(validation_report_card(validation_report), unsafe_allow_html=True)
 
-    # Audit log file me sab details save karo persistent record ke liye
+    # Persist run audit log
     try:
         from src.utils.logger import log_full_optimization_and_validation
         log_full_optimization_and_validation(
@@ -577,7 +578,7 @@ if current_results is not None and current_results.get("last_tau") is not None:
     except Exception as log_err:
         pass
 
-    # 3. Solid plate vs Optimized TPMS plate ka clinical comparison table
+    # Solid baseline vs Optimized TPMS clinical comparison
     st.markdown(
         comparison_panel(
             baseline_mass_g=solid_mass,
@@ -591,7 +592,7 @@ if current_results is not None and current_results.get("last_tau") is not None:
         unsafe_allow_html=True
     )
 
-    # 4. Multi-layer 3D inspection: Metamaterial lattice structure aur Von Mises stress heatmap
+    # Multi-layer 3D inspection: Porosity architecture and Von Mises stress / FoS
     if os.path.exists(mesh_path):
         st.markdown("---")
         st.markdown(section_label("🔬", "Interactive 3D Biomechanical Renders"), unsafe_allow_html=True)
@@ -617,7 +618,6 @@ if current_results is not None and current_results.get("last_tau") is not None:
         r1, r2 = st.columns(2, gap="large")
         
         if "Stress" in view_layer or "Safety" in view_layer:
-            # Pura 3D stress tensor calculate karo MPa me
             with st.spinner("Evaluating 3D continuum stress tensor…"):
                 t_p_anc, t_p_tra, t_bri, t_d_tra, t_d_anc, sigma = last_tau
                 theta_fem = jnp.array([
@@ -637,7 +637,7 @@ if current_results is not None and current_results.get("last_tau") is not None:
                     selected_material.youngs_modulus_gpa
                 ])
                 sol_u, _, _, _ = solve_fem(theta_fem)
-                nodal_vm = compute_nodal_von_mises_stress(mesh_path, sol_u, selected_material.youngs_modulus_gpa)
+                nodal_vm = compute_nodal_von_mises_stress(mesh_path, sol_u, selected_material.youngs_modulus_gpa, theta_fem=theta_fem)
                 max_vm = float(np.max(nodal_vm))
                 min_fos = float(selected_material.yield_strength_mpa / max(max_vm, 1e-4))
                 
@@ -657,20 +657,20 @@ if current_results is not None and current_results.get("last_tau") is not None:
             with r1:
                 title1 = "🛡️ 3D Factor of Safety Distribution (Full Remeshed TPMS Surface)" if is_fos else "⚡ 3D Von Mises Stress Contour (Full Remeshed TPMS Surface)"
                 st.caption(title1)
-                st.plotly_chart(get_von_mises_plotly_fig(mesh_path, nodal_vm, yield_strength_mpa=selected_material.yield_strength_mpa, mode=mode_str, tau_values=last_tau, tpms_type=tpms_type_code, fillet_radius=fillet_radius_m, screw_spacing=screw_spacing_m, bridge_span=bridge_span_m, t_top=t_top_m, t_bottom=t_bot_m), use_container_width=True, key="vm_ext")
+                st.plotly_chart(get_von_mises_plotly_fig(mesh_path, nodal_vm, yield_strength_mpa=selected_material.yield_strength_mpa, mode=mode_str, tau_values=last_tau, tpms_type=tpms_type_code, fillet_radius=fillet_radius_m, screw_spacing=screw_spacing_m, bridge_span=bridge_span_m, t_top=t_top_m, t_bottom=t_bot_m), width="stretch", key="vm_ext")
             with r2:
                 title2 = "🛡️ Internal Factor of Safety (Z-cut Sagittal TPMS View)" if is_fos else "⚡ Internal Stress Distribution (Z-cut Sagittal TPMS View)"
                 st.caption(title2)
-                st.plotly_chart(get_von_mises_plotly_fig(mesh_path, nodal_vm, clip_axis="z", yield_strength_mpa=selected_material.yield_strength_mpa, mode=mode_str, tau_values=last_tau, tpms_type=tpms_type_code, fillet_radius=fillet_radius_m, screw_spacing=screw_spacing_m, bridge_span=bridge_span_m, t_top=t_top_m, t_bottom=t_bot_m), use_container_width=True, key="vm_int")
+                st.plotly_chart(get_von_mises_plotly_fig(mesh_path, nodal_vm, clip_axis="z", yield_strength_mpa=selected_material.yield_strength_mpa, mode=mode_str, tau_values=last_tau, tpms_type=tpms_type_code, fillet_radius=fillet_radius_m, screw_spacing=screw_spacing_m, bridge_span=bridge_span_m, t_top=t_top_m, t_bottom=t_bot_m), width="stretch", key="vm_int")
         else:
             with r1:
                 st.caption(f"🔬 3D {tpms_choice.split('·')[0].strip()} Solid Surface (Top: {t_top_mm:.2f}mm · Core: {h_tpms_mm:.2f}mm · Bot: {t_bot_mm:.2f}mm · Bridge: {bridge_span_mm:.1f}mm)")
-                st.plotly_chart(get_mesh_plotly_fig(mesh_path, tau_values=last_tau, tpms_type=tpms_type_code, fillet_radius=fillet_radius_m, screw_spacing=screw_spacing_m, bridge_span=bridge_span_m, t_top=t_top_m, t_bottom=t_bot_m), use_container_width=True, key="final_ext")
+                st.plotly_chart(get_mesh_plotly_fig(mesh_path, tau_values=last_tau, tpms_type=tpms_type_code, fillet_radius=fillet_radius_m, screw_spacing=screw_spacing_m, bridge_span=bridge_span_m, t_top=t_top_m, t_bottom=t_bot_m), width="stretch", key="final_ext")
             with r2:
                 st.caption(f"🔬 Internal TPMS Porosity Gradient (Z-cut Sagittal View)")
-                st.plotly_chart(get_mesh_plotly_fig(mesh_path, tau_values=last_tau, clip_axis="z", tpms_type=tpms_type_code, fillet_radius=fillet_radius_m, screw_spacing=screw_spacing_m, bridge_span=bridge_span_m, t_top=t_top_m, t_bottom=t_bot_m), use_container_width=True, key="final_int")
+                st.plotly_chart(get_mesh_plotly_fig(mesh_path, tau_values=last_tau, clip_axis="z", tpms_type=tpms_type_code, fillet_radius=fillet_radius_m, screw_spacing=screw_spacing_m, bridge_span=bridge_span_m, t_top=t_top_m, t_bottom=t_bot_m), width="stretch", key="final_int")
 
-    # 5. Direct 3D slicer ke liye binary STL file download section
+    # Manufacturing CAD STL export
     st.markdown("---")
     st.markdown(section_label("📥", "Manufacturing & CAD Export Section"), unsafe_allow_html=True)
     exp_col1, exp_col2 = st.columns(2, gap="large")
@@ -682,7 +682,7 @@ if current_results is not None and current_results.get("last_tau") is not None:
             data=stl_bytes,
             file_name=f"tesseract_{tpms_type_code}_{selected_material.code.lower()}.stl",
             mime="model/stl",
-            use_container_width=True
+            width="stretch"
         )
     with exp_col2:
         with open(mesh_path, "rb") as f:
@@ -691,12 +691,12 @@ if current_results is not None and current_results.get("last_tau") is not None:
                 data=f,
                 file_name="tesseract_bone_plate_mesh.msh",
                 mime="application/octet-stream",
-                use_container_width=True
+                width="stretch"
             )
 
-# Session history table niche render karo
+# Optimization history log table
 if len(st.session_state.run_history) > 0:
     st.markdown("---")
     st.markdown(section_label("📋", "Optimization & Verification Session History"), unsafe_allow_html=True)
     history_df = pd.DataFrame(st.session_state.run_history)
-    st.dataframe(history_df, use_container_width=True)
+    st.dataframe(history_df, width="stretch")

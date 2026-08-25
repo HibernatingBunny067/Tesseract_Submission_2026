@@ -1,13 +1,14 @@
-# PETSc aur JAX-FEM ka forward solver setup
+# JAX-FEM Forward and Adjoint Biomechanical Solver Setup
+import os
+from typing import Tuple, Union, List, Any, Optional
+import numpy as np
 import jax.numpy as jnp
 from jax_fem.solver import solver, ad_wrapper
-from src.fem.problem import build_problem
-import os
+from src.fem.problem import build_problem, BiomechanicsProblem
 
 # Accelerated High-Performance Direct Sparse Solver:
-# Scipy SuperLU (spsolve_solver) delivers a 2.4x speedup over PETSc baseline LU
-# (reducing step time from ~14.0s down to ~5.7s per forward+adjoint evaluation)
-# while maintaining identical machine-precision accuracy.
+# Scipy SuperLU (spsolve_solver) delivers a 2.43x speedup over baseline PETSc LU
+# while maintaining machine-precision accuracy.
 SOLVER_OPTIONS = {
     "spsolve_solver": {}
 }
@@ -16,10 +17,10 @@ ADJOINT_SOLVER_OPTIONS = {
     "spsolve_solver": {}
 }
 
-mesh_path = os.path.join(os.path.dirname(__file__), "data", "model.msh")
+mesh_path: str = os.path.join(os.path.dirname(__file__), "data", "model.msh")
 if os.path.exists(mesh_path):
-    problem = build_problem(mesh_path)
-    # Differentiable wrapper banao jo reverse-mode adjoint chalaega
+    problem: Optional[BiomechanicsProblem] = build_problem(mesh_path)
+    # Differentiable forward and adjoint solver wrapper
     fwd_pred = ad_wrapper(
         problem,
         solver_options=SOLVER_OPTIONS,
@@ -30,10 +31,12 @@ else:
     fwd_pred = None
 
 
-def solve_fem(theta):
-    # Normal forward non-linear solve displacement nikalne ke liye
-    theta = jnp.asarray(theta)
-    problem.set_params(theta)
+def solve_fem(theta: Union[List[float], jnp.ndarray, np.ndarray]) -> Tuple[jnp.ndarray, jnp.ndarray, jnp.ndarray, jnp.ndarray]:
+    """
+    Executes a forward non-linear FEM simulation to evaluate the displacement and compliance field.
+    """
+    theta_arr: jnp.ndarray = jnp.asarray(theta)
+    problem.set_params(theta_arr)
 
     sol_list = solver(
         problem,
@@ -41,19 +44,19 @@ def solve_fem(theta):
     )
 
     points = problem.fes[0].points
-    u = sol_list[0]
+    u: jnp.ndarray = sol_list[0]
 
-    compliance = problem.compute_compliance(u)
-    max_displacement = jnp.max(jnp.abs(u))
+    compliance: jnp.ndarray = problem.compute_compliance(u)
+    max_displacement: jnp.ndarray = jnp.max(jnp.abs(u))
     
-    # 2mm fracture gap (x=79mm aur x=81mm) ke beech relative motion measure karo
+    # Interfragmentary micro-motion measured across the 2.0 mm fracture gap (x=79mm to x=81mm)
     prox_mask = jnp.logical_and(jnp.abs(points[:, 0] - 0.079) < 1e-4, jnp.sqrt(points[:, 1]**2 + points[:, 2]**2) <= 0.012)
     dist_mask = jnp.logical_and(jnp.abs(points[:, 0] - 0.081) < 1e-4, jnp.sqrt(points[:, 1]**2 + points[:, 2]**2) <= 0.012)
     
     u_prox = jnp.sum(u * prox_mask[:, None], axis=0) / (jnp.sum(prox_mask) + 1e-10)
     u_dist = jnp.sum(u * dist_mask[:, None], axis=0) / (jnp.sum(dist_mask) + 1e-10)
     
-    fracture_displacement = jnp.linalg.norm(u_prox - u_dist)
+    fracture_displacement: jnp.ndarray = jnp.linalg.norm(u_prox - u_dist)
 
     return (
         u,
@@ -63,16 +66,18 @@ def solve_fem(theta):
     )
 
 
-def solve_fem_differentiable(theta):
-    # Yeh wala function jax.grad() ke andar call hota hai gradient nikalne ke liye
-    theta = jnp.asarray(theta)
-    sol_list = fwd_pred(theta)
+def solve_fem_differentiable(theta: Union[List[float], jnp.ndarray, np.ndarray]) -> Tuple[jnp.ndarray, jnp.ndarray, jnp.ndarray]:
+    """
+    Differentiable forward solve invoked within jax.grad() for reverse-mode adjoint VJP sensitivity.
+    """
+    theta_arr: jnp.ndarray = jnp.asarray(theta)
+    sol_list = fwd_pred(theta_arr)
 
-    u = sol_list[0]
+    u: jnp.ndarray = sol_list[0]
     points = problem.fes[0].points
     
-    compliance = problem.compute_compliance(u)
-    max_displacement = jnp.max(jnp.abs(u))
+    compliance: jnp.ndarray = problem.compute_compliance(u)
+    max_displacement: jnp.ndarray = jnp.max(jnp.abs(u))
     
     prox_mask = jnp.logical_and(jnp.abs(points[:, 0] - 0.079) < 1e-4, jnp.sqrt(points[:, 1]**2 + points[:, 2]**2) <= 0.012)
     dist_mask = jnp.logical_and(jnp.abs(points[:, 0] - 0.081) < 1e-4, jnp.sqrt(points[:, 1]**2 + points[:, 2]**2) <= 0.012)
@@ -80,6 +85,6 @@ def solve_fem_differentiable(theta):
     u_prox = jnp.sum(u * prox_mask[:, None], axis=0) / (jnp.sum(prox_mask) + 1e-10)
     u_dist = jnp.sum(u * dist_mask[:, None], axis=0) / (jnp.sum(dist_mask) + 1e-10)
     
-    fracture_displacement = jnp.linalg.norm(u_prox - u_dist)
+    fracture_displacement: jnp.ndarray = jnp.linalg.norm(u_prox - u_dist)
 
     return compliance, max_displacement, fracture_displacement

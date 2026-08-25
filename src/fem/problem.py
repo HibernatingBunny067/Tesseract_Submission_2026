@@ -2,39 +2,57 @@ import os
 import numpy as np, jax
 import jax.numpy as jnp
 import meshio
+from typing import Optional, Union, List, Tuple, Callable, Any
 from jax_fem.problem import Problem
 from jax_fem.solver import solver
 from jax_fem.generate_mesh import get_meshio_cell_type, Mesh
 from jax_fem.utils import save_sol
 
-# Gmsh mesh ke physical group tags:
+# Physical group tags from Gmsh CAD model:
 # 1: Proximal_Cortical, 2: Proximal_Trabecular
 # 3: Distal_Cortical, 4: Distal_Trabecular
 # 5: Gap_Cortical, 6: Gap_Trabecular
 # 10: Plate
 
 
-def evaluate_tpms_field(k, x, y, z, tpms_type="primitive"):
-    # Minimal surface field evaluate karo
-    tpms_lower = str(tpms_type).lower()
+def evaluate_tpms_field(
+    k: Union[float, jnp.ndarray],
+    x: jnp.ndarray,
+    y: jnp.ndarray,
+    z: jnp.ndarray,
+    tpms_type: str = "primitive"
+) -> jnp.ndarray:
+    """
+    Evaluates the analytical level-set field F(x, y, z) for TPMS architectures.
+    """
+    tpms_lower: str = str(tpms_type).lower()
     if "gyroid" in tpms_lower or "g" in tpms_lower:
-        # Schoen Gyroid (G): shear strength ke liye mast
+        # Schoen Gyroid (G): High shear resistance and isotropic compliance
         return 1.5 * (jnp.sin(k * x) * jnp.cos(k * y) + jnp.sin(k * y) * jnp.cos(k * z) + jnp.sin(k * z) * jnp.cos(k * x))
     elif "diamond" in tpms_lower or "d" in tpms_lower:
-        # Schwarz Diamond (D): twisting/torsion resistance ke liye best
+        # Schwarz Diamond (D): High torsional stiffness and multi-axial stability
         return 1.8 * (jnp.cos(k * x) * jnp.cos(k * y) * jnp.cos(k * z) - jnp.sin(k * x) * jnp.sin(k * y) * jnp.sin(k * z))
     else:
-        # Schwarz Primitive (P): maximum fluid permeability aur bone callus growth
+        # Schwarz Primitive (P): High fluid permeability and nutrient transport for secondary healing
         return jnp.cos(k * x) + jnp.cos(k * y) + jnp.cos(k * z)
 
 
-def evaluate_sandwich_and_screw_masks(x, y, z, screw_spacing=0.015, bridge_span=0.030, fillet_radius=0.0012, t_top=0.0002, t_bot=0.0002):
+def evaluate_sandwich_and_screw_masks(
+    x: jnp.ndarray,
+    y: jnp.ndarray,
+    z: jnp.ndarray,
+    screw_spacing: Union[float, jnp.ndarray] = 0.015,
+    bridge_span: Union[float, jnp.ndarray] = 0.030,
+    fillet_radius: Union[float, jnp.ndarray] = 0.0012,
+    t_top: Union[float, jnp.ndarray] = 0.0002,
+    t_bot: Union[float, jnp.ndarray] = 0.0002
+) -> Tuple[jnp.ndarray, jnp.ndarray]:
     # 3-Layer Sandwich Parameterization:
     # Total implant depth is strictly fixed at 6.0 mm (y in [0.011, 0.017]).
     # Top solid plate: thickness t_top (0.15mm - 2.0mm)
     # Bottom solid plate: thickness t_bot (0.15mm - 2.0mm)
     # Middle porous TPMS core: thickness h_tpms = 6.0mm - (t_top + t_bot)
-    skin_sharpness = 2500.0
+    skin_sharpness: float = 2500.0
     t_top = jnp.clip(t_top, 0.00015, 0.0020)
     t_bot = jnp.clip(t_bot, 0.00015, 0.0020)
     t_perimeter = jnp.minimum(t_top, t_bot)
@@ -63,7 +81,7 @@ def evaluate_sandwich_and_screw_masks(x, y, z, screw_spacing=0.015, bridge_span=
     
     # Dynamic 6-Hole Standard AO LCP Screw Holes (4.5 mm diameter, 2.25 mm radius)
     # Constrained within plate anchor zones
-    x_mid = 0.080
+    x_mid: float = 0.080
     x3 = x_mid - bridge_span / 2.0
     x2 = x3 - screw_spacing
     x1 = x2 - screw_spacing
@@ -86,29 +104,29 @@ def evaluate_sandwich_and_screw_masks(x, y, z, screw_spacing=0.015, bridge_span=
 
 
 def lattice_density_jax(
-    points,
-    cell_size,
-    tau_prox_anchor,
-    tau_prox_trans,
-    tau_bridge,
-    tau_dist_trans,
-    tau_dist_anchor,
-    sigma_blend=0.015,
-    tpms_type="primitive",
-    t_top=0.0002,
-    t_bottom=0.0002,
-    screw_spacing=0.015,
-    bridge_span=0.030,
-    fillet_radius=0.0012
-):
+    points: jnp.ndarray,
+    cell_size: Union[float, jnp.ndarray],
+    tau_prox_anchor: Union[float, jnp.ndarray],
+    tau_prox_trans: Union[float, jnp.ndarray],
+    tau_bridge: Union[float, jnp.ndarray],
+    tau_dist_trans: Union[float, jnp.ndarray],
+    tau_dist_anchor: Union[float, jnp.ndarray],
+    sigma_blend: Union[float, jnp.ndarray] = 0.015,
+    tpms_type: str = "primitive",
+    t_top: Union[float, jnp.ndarray] = 0.0002,
+    t_bottom: Union[float, jnp.ndarray] = 0.0002,
+    screw_spacing: Union[float, jnp.ndarray] = 0.015,
+    bridge_span: Union[float, jnp.ndarray] = 0.030,
+    fillet_radius: Union[float, jnp.ndarray] = 0.0012
+) -> jnp.ndarray:
     # 5-zone Gaussian smooth blend field
     k = 2.0 * jnp.pi / cell_size
     x, y, z = points[..., 0], points[..., 1], points[..., 2]
     
-    # Gaussian sigma spread safe bounds me rakho
+    # Gaussian blend standard deviation bounded within stable limits
     sigma = jnp.clip(sigma_blend, 0.008, 0.035)
     
-    # 5 Anatomical Centers (meters me)
+    # 5 Anatomical Centers (in meters)
     w_p_anc  = jnp.exp(- ((x - 0.035) / sigma)**2)
     w_p_tra  = jnp.exp(- ((x - 0.057) / sigma)**2)
     w_bridge = jnp.exp(- ((x - 0.080) / sigma)**2)
@@ -124,12 +142,12 @@ def lattice_density_jax(
         tau_dist_anchor * w_d_anc
     ) / w_sum
     
-    # Tau ko clip karo taaki strut kabhi gayab na ho
+    # Clamp level-set threshold tau within valid manufacturing bounds
     tau = jnp.clip(tau, 0.10, 1.45)
     
     F = evaluate_tpms_field(k, x, y, z, tpms_type)
     field = F - tau
-    sharpness = 10.0
+    sharpness: float = 10.0
     rho_lattice = 1.0 / (1.0 + jnp.exp(-sharpness * field))
     
     # 3-Layer Sandwich architecture: apply top and bottom solid plates & edge filleting
@@ -145,15 +163,19 @@ def lattice_density_jax(
     
     return rho_final
 
-def density_to_youngs_modulus(rho, cell_tags, E_solid=110e9, ga_exponent=1.6):
-    # Standard biomechanical tissue elastic moduli (Pa me)
-    E_cortical = 18e9
-    E_trabecular = 1e9
-    E_gap = 1e6
+def density_to_youngs_modulus(
+    rho: jnp.ndarray,
+    cell_tags: jnp.ndarray,
+    E_solid: float = 110e9,
+    ga_exponent: float = 1.6
+) -> jnp.ndarray:
+    # Standard biomechanical tissue elastic moduli (Pa)
+    E_cortical: float = 18e9
+    E_trabecular: float = 1e9
+    E_gap: float = 1e6
     
     # Gibson-Ashby homogenization for TPMS lattices:
-    # Exponent is empirically validated per material.
-    # Floor of 0.001 prevents zero-pivot in PETSc direct solver.
+    # E_eff = E_solid * (rho / rho_s)^gamma
     E_plate = E_solid * (0.001 + rho**ga_exponent * (1.0 - 0.001))
     
     cell_tags_expanded = cell_tags[:, None]
@@ -241,7 +263,7 @@ class BiomechanicsProblem(Problem):
         return stress
 
     def get_surface_maps(self):
-        # Distal right face (x = 0.160m) pe downward gait traction lagao
+        # Downward gait traction applied to the distal bone face (x = 0.160m)
         def surface_map(u, x):
             return jnp.array([
                 0.0,
@@ -250,10 +272,10 @@ class BiomechanicsProblem(Problem):
             ])
         return [surface_map]
 
-    def compute_compliance(self, sol):
+    def compute_compliance(self, sol: jnp.ndarray) -> jnp.ndarray:
         return compliance_from_solution(self, sol)
 
-def compliance_from_solution(problem, sol):
+def compliance_from_solution(problem: BiomechanicsProblem, sol: jnp.ndarray) -> jnp.ndarray:
     fe = problem.fes[0]
     boundary_inds = problem.boundary_inds_list[0]
     _, nanson_scale = fe.get_face_shape_grads(boundary_inds)
@@ -272,20 +294,20 @@ def compliance_from_solution(problem, sol):
         )
     )(u_face, subset_quad_points)
     
-    # Boundary traction * displacement ka integral = Total Work Done (Compliance)
-    compliance = jnp.sum(traction * u_face * nanson_scale[:, :, None])
+    # Boundary work integral (Strain Compliance)
+    compliance: jnp.ndarray = jnp.sum(traction * u_face * nanson_scale[:, :, None])
     return compliance
 
 
-# Boundary conditions: left end ko clamp karo fixed cantilever
-def left(point):
+# Boundary conditions: Clamped fixed support at proximal bone face (x = 0.0m)
+def left(point: jnp.ndarray) -> jnp.ndarray:
     return jnp.logical_and(point[0] < 1e-4, point[1]**2 + point[2]**2 <= 0.013**2)
 
-# Right end jaha traction lagegi
-def right(point):
+# Distal loaded face (x = 0.160m)
+def right(point: jnp.ndarray) -> jnp.ndarray:
     return jnp.logical_and(point[0] > 0.160 - 1e-4, point[1]**2 + point[2]**2 <= 0.013**2)
 
-def zero(point):
+def zero(point: jnp.ndarray) -> float:
     return 0.0
 
 dirichlet_bc_info = [
@@ -298,8 +320,10 @@ location_fns = [
     right
 ]
 
-def build_problem(mesh_path):
-    # Gmsh .msh file padhke JAX-FEM problem structure banao
+def build_problem(mesh_path: str) -> BiomechanicsProblem:
+    """
+    Constructs the JAX-FEM BiomechanicsProblem from a Gmsh (.msh) tetrahedral mesh.
+    """
     meshio_mesh = meshio.read(mesh_path)
     
     cells_list = []
@@ -318,7 +342,7 @@ def build_problem(mesh_path):
         
     cells = np.vstack(cells_list)
     cell_tags = np.concatenate(cell_tags_list)
-    ele_type = "TET10" if cells.shape[1] == 10 else "TET4"
+    ele_type: str = "TET10" if cells.shape[1] == 10 else "TET4"
 
     mesh = Mesh(meshio_mesh.points, cells)
 
@@ -332,8 +356,16 @@ def build_problem(mesh_path):
     return problem
 
 
-def compute_nodal_von_mises_stress(mesh_path, sol_u, youngs_modulus_gpa=110.0):
-    # Har node pe smooth continuous Von Mises stress (MPa) evaluate karo
+def compute_nodal_von_mises_stress(
+    mesh_path: str,
+    sol_u: Union[np.ndarray, jnp.ndarray],
+    youngs_modulus_gpa: float = 110.0,
+    theta_fem: Optional[Union[List[float], jnp.ndarray, np.ndarray]] = None
+) -> np.ndarray:
+    """
+    Computes continuous nodal Von Mises stress (MPa) across the construct using the
+    exact spatial homogenized elasticity tensor.
+    """
     meshio_mesh = meshio.read(mesh_path)
     points = np.asarray(meshio_mesh.points)
     
@@ -357,7 +389,7 @@ def compute_nodal_von_mises_stress(mesh_path, sol_u, youngs_modulus_gpa=110.0):
     if u.ndim == 1:
         u = u.reshape(-1, 3)
         
-    # Element-wise elastic moduli (Pa me)
+    # Element-wise elastic moduli (Pa)
     E_dict = {
         1: 18e9, 2: 1e9, 3: 18e9, 4: 1e9, 5: 1e6, 6: 1e6,
         10: youngs_modulus_gpa * 1e9
@@ -373,7 +405,20 @@ def compute_nodal_von_mises_stress(mesh_path, sol_u, youngs_modulus_gpa=110.0):
         u_e = u[c_nodes]
         tag = tags[elem_idx]
         
-        E = E_dict.get(int(tag), 18e9)
+        if tag == 10 and theta_fem is not None:
+            x_cent = np.mean(x_e, axis=0, keepdims=True)
+            rho_val = float(lattice_density_jax(
+                jnp.array(x_cent),
+                theta_fem[0], theta_fem[1], theta_fem[2], theta_fem[3], theta_fem[4], theta_fem[5],
+                sigma_blend=theta_fem[6], t_top=theta_fem[7], t_bottom=theta_fem[8],
+                screw_spacing=theta_fem[9], bridge_span=theta_fem[10], fillet_radius=theta_fem[11]
+            )[0])
+            ga_exp = float(theta_fem[12]) if len(theta_fem) > 12 else 1.6
+            E_base = float(theta_fem[13]) * 1e9 if len(theta_fem) > 13 else youngs_modulus_gpa * 1e9
+            E = float(E_base * (0.001 + (rho_val ** ga_exp) * 0.999))
+        else:
+            E = E_dict.get(int(tag), 18e9)
+            
         mu = E / (2.0 * (1.0 + nu))
         lmbda = (E * nu) / ((1.0 + nu) * (1.0 - 2.0 * nu))
         
@@ -388,7 +433,7 @@ def compute_nodal_von_mises_stress(mesh_path, sol_u, youngs_modulus_gpa=110.0):
             tr_eps = np.trace(eps)
             sigma = lmbda * tr_eps * np.eye(3) + 2.0 * mu * eps
             s_dev = sigma - (1.0 / 3.0) * np.trace(sigma) * np.eye(3)
-            # Deviatoric stress se Von Mises MPa nikalo
+            # Von Mises equivalent stress in MPa from deviatoric stress tensor
             vm_mpa = np.sqrt(1.5 * np.sum(s_dev * s_dev)) / 1e6
         except Exception:
             vm_mpa = 0.0

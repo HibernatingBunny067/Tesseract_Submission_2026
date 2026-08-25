@@ -6,8 +6,9 @@ ASTM F382 (Metallic Bone Plate Specification) and ISO 7206.
 """
 
 from dataclasses import dataclass
-from typing import List, Dict, Any
+from typing import List, Dict, Any, Tuple, Union
 import numpy as np
+from src.fem.materials import Biomaterial
 
 
 @dataclass(frozen=True)
@@ -32,11 +33,11 @@ class ClinicalValidationReport:
 
 
 def run_insilico_validation_suite(
-    tau_values: tuple,
+    tau_values: Union[Tuple[float, ...], List[float], np.ndarray],
     target_disp_m: float,
     achieved_disp_m: float,
     avg_porosity_pct: float,
-    material,
+    material: Biomaterial,
     fidelity_mode: str = "Clinical Grade (TET10 Refined)"
 ) -> ClinicalValidationReport:
     """

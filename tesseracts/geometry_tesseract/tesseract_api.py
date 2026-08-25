@@ -1,7 +1,7 @@
 # Copyright 2025 Pasteur Labs. All Rights Reserved.
 # SPDX-License-Identifier: Apache-2.0
 
-from typing import Any
+from typing import Any, Tuple, Union, List
 import numpy as np
 import jax
 import jax.numpy as jnp
@@ -20,7 +20,9 @@ from src.fem.problem import evaluate_sandwich_and_screw_masks, evaluate_tpms_fie
 # Differentiable Metamaterial Geometry & Porosity Synthesizer
 #
 
-def evaluate_geometry_metrics(theta):
+def evaluate_geometry_metrics(
+    theta: Union[jnp.ndarray, np.ndarray, List[float]]
+) -> Tuple[jnp.ndarray, jnp.ndarray, jnp.ndarray, jnp.ndarray]:
     # theta: [cell_size, tau_p_anc, tau_p_tra, tau_bridge, tau_d_tra, tau_d_anc, sigma_blend, t_top, t_bottom, screw_spacing, bridge_span, fillet_radius]
     cell_size = theta[0]
     t_p_anc   = theta[1]

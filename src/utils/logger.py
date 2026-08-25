@@ -12,25 +12,28 @@ Records complete audit trails for every surgical design request:
 import os
 import json
 import datetime
-from typing import Dict, Any, Optional
+from typing import Dict, Any, Optional, Tuple, List, Union
+from src.agent.agent import DesignRequest
+from src.fem.materials import Biomaterial
+from src.fem.validation import ClinicalValidationReport
 
-LOGS_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), "../../logs"))
+LOGS_DIR: str = os.path.abspath(os.path.join(os.path.dirname(__file__), "../../logs"))
 os.makedirs(LOGS_DIR, exist_ok=True)
 
-TEXT_LOG_PATH = os.path.join(LOGS_DIR, "clinical_audit.log")
-JSONL_LOG_PATH = os.path.join(LOGS_DIR, "session_history.jsonl")
+TEXT_LOG_PATH: str = os.path.join(LOGS_DIR, "clinical_audit.log")
+JSONL_LOG_PATH: str = os.path.join(LOGS_DIR, "session_history.jsonl")
 
 
 def log_user_prompt_and_llm_response(
     user_prompt: str,
-    design_req: Any,
+    design_req: DesignRequest,
     engine: str = "Groq LPU / Local NLP"
-):
+) -> None:
     """Logs the raw NLP user request and structured agent response."""
-    timestamp = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    timestamp: str = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
     
     # Formatted human-readable audit entry
-    entry = f"""
+    entry: str = f"""
 ================================================================================
 [AUDIT LOG] NLP DESIGN REQUEST & AGENT INTERPRETATION
 Timestamp: {timestamp}
@@ -53,14 +56,14 @@ AGENT STRUCTURED TRANSLATION:
         f.write(entry + "\n")
         
     # Structured JSONL record
-    json_entry = {
+    json_entry: Dict[str, Any] = {
         "event": "nlp_request_parsed",
         "timestamp": timestamp,
         "engine": engine,
         "user_prompt": user_prompt,
-        "parsed_objective": design_req.objective,
-        "target_fracture_displacement_m": design_req.target_fracture_displacement,
-        "max_mass": design_req.max_mass,
+        "objective": design_req.objective,
+        "target_micro_motion_mm": design_req.target_fracture_displacement * 1000.0,
+        "max_mass_fraction": design_req.max_mass,
         "recommended_material": design_req.recommended_material,
         "recommended_tpms": getattr(design_req, 'recommended_tpms', 'Schwarz Primitive (P)'),
         "clinical_rationale": design_req.clinical_rationale
@@ -71,8 +74,8 @@ AGENT STRUCTURED TRANSLATION:
 
 def log_full_optimization_and_validation(
     user_prompt: str,
-    design_req: Any,
-    material: Any,
+    design_req: DesignRequest,
+    material: Biomaterial,
     fidelity_mode: str,
     total_steps: int,
     initial_loss: float,
@@ -82,9 +85,9 @@ def log_full_optimization_and_validation(
     avg_porosity_pct: float,
     solid_mass_g: float,
     optimized_mass_g: float,
-    tau_values: tuple,
-    validation_report: Any
-):
+    tau_values: Union[Tuple[float, ...], List[float]],
+    validation_report: ClinicalValidationReport
+) -> None:
     """
     Logs complete end-to-end outcome including adjoint optimization stats
     and ASTM/ISO in-silico verification results.

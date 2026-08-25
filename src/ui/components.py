@@ -5,6 +5,9 @@ All functions return clean, unindented HTML to avoid Markdown code-block escapin
 """
 
 from dataclasses import dataclass
+from typing import List, Dict, Any, Optional
+from src.fem.materials import Biomaterial
+from src.fem.validation import ClinicalValidationReport
 
 
 # ---------------------------------------------------------------------------
@@ -161,7 +164,7 @@ def comparison_panel(
 # ---------------------------------------------------------------------------
 # Material Specification Card
 # ---------------------------------------------------------------------------
-def material_card(mat) -> str:
+def material_card(mat: Biomaterial) -> str:
     """Card displaying current biomaterial properties and clinical standard."""
     return (
         f'<div class="glass-card" style="margin-bottom: 0.8rem; padding: 0.9rem 1.1rem;">'
@@ -184,7 +187,7 @@ def material_card(mat) -> str:
 # ---------------------------------------------------------------------------
 # In-Silico Clinical Validation Report Card
 # ---------------------------------------------------------------------------
-def validation_report_card(report) -> str:
+def validation_report_card(report: ClinicalValidationReport) -> str:
     """Renders the comprehensive ASTM / ISO validation testing battery report without indentation escaping."""
     verdict_color = "#4ade80" if "APPROVED" in report.overall_verdict else "#fbbf24" if "CONDITIONAL" in report.overall_verdict else "#f87171"
     verdict_bg = "rgba(34, 197, 94, 0.12)" if "APPROVED" in report.overall_verdict else "rgba(251, 191, 36, 0.12)"

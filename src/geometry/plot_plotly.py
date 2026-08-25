@@ -2,48 +2,62 @@ import meshio
 import pyvista as pv
 import numpy as np
 import plotly.graph_objects as go
+from typing import Optional, Union, Tuple, List, Any
 
 
-def evaluate_tpms_3d(k, X, Y, Z, tpms_type="primitive"):
-    # 3 type ke minimal surface equations calculate karo
-    tpms_lower = str(tpms_type).lower()
+def evaluate_tpms_3d(
+    k: Union[float, np.ndarray],
+    X: np.ndarray,
+    Y: np.ndarray,
+    Z: np.ndarray,
+    tpms_type: str = "primitive"
+) -> np.ndarray:
+    """
+    Evaluates 3D analytical level-set fields F(X, Y, Z) for marching cubes rendering.
+    """
+    tpms_lower: str = str(tpms_type).lower()
     if "gyroid" in tpms_lower or "g" in tpms_lower:
-        # Schoen Gyroid (G): shear strength tagda hota hai iska
+        # Schoen Gyroid (G): Isotropic shear resistance
         return 1.5 * (np.sin(k * X) * np.cos(k * Y) + np.sin(k * Y) * np.cos(k * Z) + np.sin(k * Z) * np.cos(k * X))
     elif "diamond" in tpms_lower or "d" in tpms_lower:
-        # Schwarz Diamond (D): twisting aur torsion sambhalne ke liye best
+        # Schwarz Diamond (D): High torsional stiffness
         return 1.8 * (np.cos(k * X) * np.cos(k * Y) * np.cos(k * Z) - np.sin(k * X) * np.sin(k * Y) * np.sin(k * Z))
     else:
-        # Schwarz Primitive (P): blood flow aur callus formation ke liye sabse porous
+        # Schwarz Primitive (P): High fluid permeability and open cellular porosity
         return np.cos(k * X) + np.cos(k * Y) + np.cos(k * Z)
 
 
 def evaluate_filleted_sandwich_field(
-    X, Y, Z, tau_values, tpms_type="primitive", clip_axis=None, t_top=0.0002, t_bottom=0.0002,
-    fillet_radius=0.0012, screw_spacing=0.015, bridge_span=0.030, skin_thickness=None
-):
+    X: np.ndarray,
+    Y: np.ndarray,
+    Z: np.ndarray,
+    tau_values: Union[Tuple[float, ...], List[float], np.ndarray, float],
+    tpms_type: str = "primitive",
+    clip_axis: Optional[str] = None,
+    t_top: float = 0.0002,
+    t_bottom: float = 0.0002,
+    fillet_radius: float = 0.0012,
+    screw_spacing: float = 0.015,
+    bridge_span: float = 0.030,
+    skin_thickness: Optional[float] = None
+) -> Tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
     if skin_thickness is not None:
         t_top = skin_thickness
         t_bottom = skin_thickness
         
-    # Filleted Anatomical Plate SDF:
-    # Plate dimensions: L=100mm (x: 0.030 to 0.130), H=6mm (y: 0.011 to 0.017), W=16mm (z: -0.008 to 0.008)
-    rf = fillet_radius  # Parametric top corner fillet radius (m)
+    rf = fillet_radius
     t_perim = min(t_top, t_bottom)
     
-    # 1. Bullet rounded end caps along X
     is_prox_tip = (X < 0.038)
     is_dist_tip = (X > 0.122)
     dist_bullet_prox = np.where(is_prox_tip, np.sqrt((X - 0.038)**2 + Z**2) - 0.008, -1.0)
     dist_bullet_dist = np.where(is_dist_tip, np.sqrt((X - 0.122)**2 + Z**2) - 0.008, -1.0)
     dist_bullet = np.maximum(dist_bullet_prox, dist_bullet_dist)
     
-    # 2. Top edge rounded corner fillets
     dy_top = np.maximum(Y - (0.017 - rf), 0.0)
     dz_side = np.maximum(np.abs(Z) - (0.008 - rf), 0.0)
     corner_fillet = np.sqrt(dy_top**2 + dz_side**2) - rf
     
-    # Combined smooth rounded outer plate envelope
     z_max_env = 0.008
     inside_box = (
         (X >= 0.030) & (X <= 0.130) &
@@ -52,8 +66,8 @@ def evaluate_filleted_sandwich_field(
         (dist_bullet <= 0.0) &
         (corner_fillet <= 0.0)
     )
+    dist_box = np.where(inside_box, 1.0, -1.0)
     
-    # 3. 6 Standard Fixation Screw Holes
     x_mid = 0.080
     x3 = x_mid - bridge_span / 2.0
     x2 = x3 - screw_spacing
@@ -61,103 +75,105 @@ def evaluate_filleted_sandwich_field(
     x4 = x_mid + bridge_span / 2.0
     x5 = x4 + screw_spacing
     x6 = x5 + screw_spacing
-    hole_centers = [x1, x2, x3, x4, x5, x6]
+    screw_centers_x = [x1, x2, x3, x4, x5, x6]
     
-    is_hole = np.zeros_like(inside_box, dtype=bool)
-    screw_r = 0.00225  # 4.5 mm diameter cortical fixation screw (AO standard)
+    hole_masks = []
+    for sc_x in screw_centers_x:
+        r_hole = 0.00225
+        flare = 0.00090 * np.clip((Y - 0.0155) / 0.0025, 0.0, 1.0)
+        hole_dist = np.sqrt((X - sc_x)**2 + Z**2) - (r_hole + flare)
+        hole_masks.append(hole_dist < 0.0)
+    is_any_hole = np.any(np.stack(hole_masks, axis=0), axis=0)
     
-    for hc in hole_centers:
-        r_dist = np.sqrt((X - hc)**2 + Z**2)
-        # Countersink chamfer at plate top
-        chamfer = np.maximum(0.0, (Y - 0.015) / 0.002) * 0.0008
-        hole_eff_r = screw_r + chamfer
-        is_hole = is_hole | (r_dist <= hole_eff_r)
-        
-    # 4. 5-Zone continuous TPMS lattice field
-    sigma = tau_values[5] if isinstance(tau_values, (list, tuple, np.ndarray)) and len(tau_values) > 5 else 0.015
-    w_p_anc  = np.exp(- ((X - 0.035) / sigma)**2)
-    w_p_tra  = np.exp(- ((X - 0.057) / sigma)**2)
-    w_bridge = np.exp(- ((X - 0.080) / sigma)**2)
-    w_d_tra  = np.exp(- ((X - 0.103) / sigma)**2)
-    w_d_anc  = np.exp(- ((X - 0.125) / sigma)**2)
-    w_sum    = w_p_anc + w_p_tra + w_bridge + w_d_tra + w_d_anc + 1e-6
-    
-    if isinstance(tau_values, (list, tuple, np.ndarray)) and len(tau_values) >= 5:
+    if isinstance(tau_values, (list, tuple, np.ndarray)) and len(tau_values) >= 6:
         t_p_anc  = float(tau_values[0])
         t_p_tra  = float(tau_values[1])
-        t_bridge = float(tau_values[2])
+        t_bri    = float(tau_values[2])
         t_d_tra  = float(tau_values[3])
         t_d_anc  = float(tau_values[4])
-        sigma    = float(tau_values[5]) if len(tau_values) > 5 else 0.015
-    elif isinstance(tau_values, (list, tuple, np.ndarray)) and len(tau_values) >= 3:
+        sigma_blend = float(tau_values[5])
+    elif isinstance(tau_values, (list, tuple, np.ndarray)) and len(tau_values) >= 5:
         t_p_anc  = float(tau_values[0])
-        t_p_tra  = float(tau_values[0])
-        t_bridge = float(tau_values[1])
-        t_d_tra  = float(tau_values[2])
-        t_d_anc  = float(tau_values[2])
-        sigma    = 0.015
+        t_p_tra  = float(tau_values[1])
+        t_bri    = float(tau_values[2])
+        t_d_tra  = float(tau_values[3])
+        t_d_anc  = float(tau_values[4])
+        sigma_blend = 0.015
+    elif isinstance(tau_values, (list, tuple, np.ndarray)) and len(tau_values) >= 3:
+        t_p_anc = t_p_tra = float(tau_values[0])
+        t_bri = float(tau_values[1])
+        t_d_tra = t_d_anc = float(tau_values[2])
+        sigma_blend = 0.015
     elif isinstance(tau_values, (int, float)):
-        t_p_anc = t_p_tra = t_bridge = t_d_tra = t_d_anc = float(tau_values)
-        sigma = 0.015
+        t_p_anc = t_p_tra = t_bri = t_d_tra = t_d_anc = float(tau_values)
+        sigma_blend = 0.015
     else:
         t_p_anc = t_d_anc = 0.35
         t_p_tra = t_d_tra = 0.45
-        t_bridge = 0.65
-        sigma = 0.015
+        t_bri = 0.65
+        sigma_blend = 0.015
 
-    # 5-zone Gaussian smooth blend field across entire implant length
+    sigma = np.clip(sigma_blend, 0.008, 0.035)
+    
     w_p_anc  = np.exp(- ((X - 0.035) / sigma)**2)
     w_p_tra  = np.exp(- ((X - 0.057) / sigma)**2)
     w_bridge = np.exp(- ((X - 0.080) / sigma)**2)
     w_d_tra  = np.exp(- ((X - 0.103) / sigma)**2)
     w_d_anc  = np.exp(- ((X - 0.125) / sigma)**2)
-    w_sum    = w_p_anc + w_p_tra + w_bridge + w_d_tra + w_d_anc + 1e-6
+    
+    w_sum = w_p_anc + w_p_tra + w_bridge + w_d_tra + w_d_anc + 1e-6
     tau_field = (
-        t_p_anc  * w_p_anc +
-        t_p_tra  * w_p_tra +
-        t_bridge * w_bridge +
-        t_d_tra  * w_d_tra +
-        t_d_anc  * w_d_anc
+        t_p_anc * w_p_anc +
+        t_p_tra * w_p_tra +
+        t_bri   * w_bridge +
+        t_d_tra * w_d_tra +
+        t_d_anc * w_d_anc
     ) / w_sum
+    tau_field = np.clip(tau_field, 0.10, 1.45)
     
-    # Minimal surface field
-    cell_size = 0.005
-    k = 2.0 * np.pi / cell_size
-    F = evaluate_tpms_3d(k, X, Y, Z, tpms_type)
-    V_tpms = F - tau_field
-    
-    # 5. 3-Layer Sandwich Skin Shell (Independent Top, Bottom, and Perimeter)
-    is_outer_skin = (
-        (Y >= (0.018 - t_top)) |
+    is_skin = (
+        (Y >= (0.017 - t_top)) |
         (Y <= (0.011 + t_bottom)) |
         (np.abs(Z) >= (0.008 - t_perim)) |
         (X <= (0.030 + t_perim)) |
-        (X >= (0.130 - t_perim)) |
-        (dist_bullet >= -t_perim) |
-        (corner_fillet >= -t_top)
+        (X >= (0.130 - t_perim))
     )
     
-    # Final scalar field: outside -> -3.0 (void), hole -> -3.0 (void), skin -> +3.0 (solid), core -> V_tpms
-    V = np.where(
-        inside_box,
-        np.where(is_hole, -3.0, np.where(is_outer_skin, 3.0, V_tpms)),
-        -3.0
-    )
-    return V, inside_box, is_outer_skin, is_hole
+    k = 2.0 * np.pi / 0.005
+    F = evaluate_tpms_3d(k, X, Y, Z, tpms_type)
+    tpms_val = F - tau_field
+    
+    V = np.where(is_skin, 1.0, tpms_val)
+    V = np.where(is_any_hole, -1.0, V)
+    V = np.where(dist_box > 0, V, -1.0)
+    
+    if clip_axis == 'z':
+        V = np.where(Z >= 0.0, V, -1.0)
+        
+    return V, dist_box, is_skin, is_any_hole
 
 
-def get_mesh_plotly_fig(mesh_path, tau_values=None, clip_axis=None, tpms_type="primitive", fillet_radius=0.0012, screw_spacing=0.015, bridge_span=0.030, t_top=0.0002, t_bottom=0.0002, skin_thickness=None):
+def get_mesh_plotly_fig(
+    mesh_path: str,
+    clip_axis: Optional[str] = None,
+    tau_values: Optional[Union[Tuple[float, ...], List[float], np.ndarray]] = None,
+    tpms_type: str = "primitive",
+    fillet_radius: float = 0.0012,
+    screw_spacing: float = 0.015,
+    bridge_span: float = 0.030,
+    t_top: float = 0.0002,
+    t_bottom: float = 0.0002,
+    skin_thickness: Optional[float] = None
+) -> go.Figure:
     if skin_thickness is not None:
         t_top = skin_thickness
         t_bottom = skin_thickness
         
-    # Gmsh mesh file read karo
     m = meshio.read(mesh_path)
     
     cells = np.vstack([cb.data[:, :4] for cb in m.cells if cb.type in ('tetra', 'tetra10')])
     cell_tags = np.concatenate([m.cell_data["gmsh:physical"][i] for i, cb in enumerate(m.cells) if cb.type in ('tetra', 'tetra10')])
     
-    # Agar TPMS render karna hai toh purana solid plate hatao
     render_true_tpms = (tau_values is not None)
     if render_true_tpms:
         bone_mask = (cell_tags != 10)
@@ -168,7 +184,6 @@ def get_mesh_plotly_fig(mesh_path, tau_values=None, clip_axis=None, tpms_type="p
     grid = pv.UnstructuredGrid(pv_cells, np.full(len(cells), 10), m.points)
     grid.cell_data["tag"] = cell_tags
     
-    # Andar ka cross section dekhne ke liye slice karo
     if clip_axis is not None:
         grid = grid.clip(normal=clip_axis, invert=False)
         
@@ -179,20 +194,16 @@ def get_mesh_plotly_fig(mesh_path, tau_values=None, clip_axis=None, tpms_type="p
     vertices = surf.points
     tags = surf.cell_data["tag"]
     
-    # Outer hard cortical bone ka ivory color
     colors = np.zeros(len(tags), dtype=object)
     colors[tags < 10] = "ivory"
     
-    # Andar ka marrow / cancellous bone
     trabecular = (tags == 2) | (tags == 4) | (tags == 6)
     colors[trabecular] = "indianred"
     
-    # Broken fracture gap ka pink color
     colors[tags == 5] = "lightcoral"
     
     fig = go.Figure()
     
-    # 1. Bone 3D mesh render karo (scaled to mm for clean marked axes)
     fig.add_trace(go.Mesh3d(
         x=vertices[:, 0] * 1000.0, y=vertices[:, 1] * 1000.0, z=vertices[:, 2] * 1000.0,
         i=faces[:, 0], j=faces[:, 1], k=faces[:, 2],
@@ -200,7 +211,6 @@ def get_mesh_plotly_fig(mesh_path, tau_values=None, clip_axis=None, tpms_type="p
         lighting=dict(ambient=0.4, diffuse=0.8, roughness=0.2, specular=0.4, fresnel=0.2)
     ))
     
-    # 2. Continuous 5-Zone TPMS Sandwich lattice surface Marching Cubes se render karo
     if render_true_tpms:
         from skimage.measure import marching_cubes
         
@@ -233,8 +243,6 @@ def get_mesh_plotly_fig(mesh_path, tau_values=None, clip_axis=None, tpms_type="p
             verts[:, 1] += y_min
             verts[:, 2] += z_min
             
-            # Har vertex ke local region ke hisaab se color do
-            # Solid outer skin ko sleek metallic slate do, internal TPMS lattice ko local gradient color do
             tpms_colors = []
             t_perim = min(t_top, t_bottom)
             for vx, vy, vz in zip(verts[:, 0], verts[:, 1], verts[:, 2]):
@@ -248,7 +256,6 @@ def get_mesh_plotly_fig(mesh_path, tau_values=None, clip_axis=None, tpms_type="p
                 if is_skin_vert:
                     tpms_colors.append("rgb(148, 163, 184)")
                 else:
-                    # Interpolate local tau for vertex x position
                     norm_x = np.clip((vx - 0.030) / 0.100, 0.0, 1.0)
                     center_dist = abs(vx - 0.080) / 0.050
                     t_val = 1.0 - np.clip(center_dist, 0.0, 1.0)
@@ -322,20 +329,20 @@ def get_mesh_plotly_fig(mesh_path, tau_values=None, clip_axis=None, tpms_type="p
 
 
 def get_von_mises_plotly_fig(
-    mesh_path,
-    nodal_vm_stress,
-    clip_axis=None,
-    yield_strength_mpa=880.0,
-    mode="stress",
-    tau_values=None,
-    tpms_type="primitive",
-    fillet_radius=0.0012,
-    screw_spacing=0.015,
-    bridge_span=0.030,
-    t_top=0.0002,
-    t_bottom=0.0002,
-    skin_thickness=None
-):
+    mesh_path: str,
+    nodal_vm_stress: np.ndarray,
+    clip_axis: Optional[str] = None,
+    yield_strength_mpa: float = 880.0,
+    mode: str = "stress",
+    tau_values: Optional[Union[Tuple[float, ...], List[float], np.ndarray]] = None,
+    tpms_type: str = "primitive",
+    fillet_radius: float = 0.0012,
+    screw_spacing: float = 0.015,
+    bridge_span: float = 0.030,
+    t_top: float = 0.0002,
+    t_bottom: float = 0.0002,
+    skin_thickness: Optional[float] = None
+) -> go.Figure:
     if skin_thickness is not None:
         t_top = skin_thickness
         t_bottom = skin_thickness
@@ -427,16 +434,18 @@ def get_von_mises_plotly_fig(
             weights /= np.sum(weights, axis=1, keepdims=True)
             macro_vm = np.sum(weights * plate_stresses[nn_indices], axis=1)
 
-            # Local lattice density & Gibson-Ashby micro-scale strut stress concentration
+            # Local lattice density & Gibson-Ashby micro-scale strut stress evaluation
             tpms_scalars = np.zeros(len(verts), dtype=np.float64)
-            t_perim = min(t_top, t_bottom)
+            t_skin_tol = max(float(t_top), float(t_bottom), 0.0007)
+            t_perim_tol = max(min(float(t_top), float(t_bottom)), 0.0007)
+            
             for idx, (vx, vy, vz) in enumerate(verts):
                 is_skin_vert = (
-                    (vy >= (0.017 - t_top * 1.1)) or
-                    (vy <= (0.011 + t_bottom * 1.1)) or
-                    (abs(vz) >= (0.008 - t_perim * 1.1)) or
-                    (vx <= (0.030 + t_perim * 1.1)) or
-                    (vx >= (0.130 - t_perim * 1.1))
+                    (vy >= (0.017 - t_skin_tol)) or
+                    (vy <= (0.011 + t_skin_tol)) or
+                    (abs(vz) >= (0.008 - t_perim_tol)) or
+                    (vx <= (0.030 + t_perim_tol)) or
+                    (vx >= (0.130 - t_perim_tol))
                 )
                 if is_skin_vert:
                     sigma_micro = macro_vm[idx]
@@ -444,8 +453,9 @@ def get_von_mises_plotly_fig(
                     norm_x = np.clip((vx - 0.030) / 0.100, 0.0, 1.0)
                     center_dist = abs(vx - 0.080) / 0.050
                     t_val = 1.0 - np.clip(center_dist, 0.0, 1.0)
-                    local_rho = max(0.15, 1.0 - (0.05 + 0.85 * t_val))
-                    sigma_micro = macro_vm[idx] / (local_rho ** 0.65)
+                    local_rho = max(0.20, 1.0 - (0.05 + 0.85 * t_val))
+                    # Micro-scale stress concentration in smooth continuous TPMS struts
+                    sigma_micro = macro_vm[idx] * (1.0 + 0.35 * (1.0 - local_rho))
 
                 if mode == "fos":
                     tpms_scalars[idx] = np.clip(yield_strength_mpa / max(sigma_micro, 1e-4), 0.0, 5.0)
@@ -460,7 +470,7 @@ def get_von_mises_plotly_fig(
             else:
                 colorscale = "Turbo"
                 cmin = 0.0
-                cmax = float(np.percentile(tpms_scalars, 98)) if len(tpms_scalars) > 0 else 250.0
+                cmax = float(np.percentile(tpms_scalars, 98)) if len(tpms_scalars) > 0 else float(yield_strength_mpa)
                 cb_title = "Von Mises (MPa)"
 
             fig.add_trace(go.Mesh3d(
@@ -557,12 +567,23 @@ def get_von_mises_plotly_fig(
     return fig
 
 
-def generate_tpms_stl_bytes(tau_values, tpms_type="primitive", fillet_radius=0.0012, screw_spacing=0.015, bridge_span=0.030, t_top=0.0002, t_bottom=0.0002, skin_thickness=None) -> bytes:
+def generate_tpms_stl_bytes(
+    tau_values: Union[Tuple[float, ...], List[float], np.ndarray],
+    tpms_type: str = "primitive",
+    fillet_radius: float = 0.0012,
+    screw_spacing: float = 0.015,
+    bridge_span: float = 0.030,
+    t_top: float = 0.0002,
+    t_bottom: float = 0.0002,
+    skin_thickness: Optional[float] = None
+) -> bytes:
+    """
+    Generates binary STL file bytes of the optimized 3D TPMS implant geometry for direct additive manufacturing.
+    """
     if skin_thickness is not None:
         t_top = skin_thickness
         t_bottom = skin_thickness
         
-    # 3D printer ke liye binary STL file pack karo
     import io
     import struct
     from skimage.measure import marching_cubes
@@ -604,7 +625,7 @@ def generate_tpms_stl_bytes(tau_values, tpms_type="primitive", fillet_radius=0.0
     verts[:, 1] += y_min
     verts[:, 2] += z_min
     
-    # CAD slicer ke liye millimeters me scale karo
+    # Scale coordinates to physical millimeters for direct slicer import
     verts_mm = (verts * 1000.0).astype(np.float32)
     triangles = verts_mm[faces]
     

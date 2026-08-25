@@ -1,19 +1,20 @@
 import gmsh
 import os
 import numpy as np
+from typing import Optional
 
 def create_implant_model(
-    length=0.160,          
-    outer_radius=0.012,    
-    inner_radius=0.008,    
-    fracture_gap=0.002,    
-    fracture_x=0.080,      
-    plate_length=0.100,
-    plate_width=0.016,
-    plate_thickness=0.006,
-    mesh_size=0.005,
-    output_path="model.msh"
-):
+    length: float = 0.160,          
+    outer_radius: float = 0.012,    
+    inner_radius: float = 0.008,    
+    fracture_gap: float = 0.002,    
+    fracture_x: float = 0.080,      
+    plate_length: float = 0.100,
+    plate_width: float = 0.016,
+    plate_thickness: float = 0.006,
+    mesh_size: float = 0.005,
+    output_path: str = "model.msh"
+) -> str:
     """
     Generates a simplified fractured bone and an attached fixation plate,
     fragmented into a single conforming mesh.
