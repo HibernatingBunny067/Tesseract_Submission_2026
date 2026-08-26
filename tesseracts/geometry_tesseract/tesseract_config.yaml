@@ -1,4 +1,18 @@
 # Tesseract configuration file for Geometry & Porosity Engine
-name: geometry_tesseract
-version: 1.0.0
-entrypoint: tesseract_api.py
+# Conforms to Pasteur Labs Tesseract specification
+name: "geometry_tesseract"
+version: "1.0.0"
+description: "Differentiable 3D SDF and Porosity Metamaterial Engine for patient-specific orthopaedic implants"
+
+env:
+  PYTHONPATH: "/tesseract"
+
+build_config:
+  base_image: "debian:bookworm-slim"
+  python_version: "3.12"
+  target_platform: "native"
+  extra_packages:
+    - curl
+    - git
+  package_data:
+    - ["../../src", "src"]
