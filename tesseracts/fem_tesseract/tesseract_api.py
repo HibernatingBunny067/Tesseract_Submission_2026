@@ -187,7 +187,7 @@ def vector_jacobian_product(
 
 
 def abstract_eval(
-    abstract_inputs: InputSchema
+    inputs: InputSchema
 ) -> dict[str, Any]:
     return {
         "compliance": {"shape": (), "dtype": "float64"},

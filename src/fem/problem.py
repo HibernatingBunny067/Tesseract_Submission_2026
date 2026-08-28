@@ -1,4 +1,10 @@
 import os
+import sys
+from unittest.mock import MagicMock
+if "petsc4py" not in sys.modules:
+    sys.modules["petsc4py"] = MagicMock()
+    sys.modules["petsc4py.PETSc"] = MagicMock()
+
 import numpy as np, jax
 import jax.numpy as jnp
 import meshio
@@ -201,6 +207,12 @@ class BiomechanicsProblem(Problem):
 
     def custom_init(self):
         self.fe = self.fes[0]
+        self.cell_tags = np.ones(self.num_cells, dtype=np.int32)
+        default_theta = jnp.array([
+            0.005, 0.50, 0.45, 0.40, 0.45, 0.50,
+            0.015, 0.0002, 0.0002, 0.015, 0.030, 0.0012
+        ])
+        self.set_params(default_theta)
 
     def set_params(self, theta):
         theta = jnp.array(theta)
@@ -347,7 +359,7 @@ def build_problem(mesh_path: str) -> BiomechanicsProblem:
     mesh = Mesh(meshio_mesh.points, cells)
 
     problem = BiomechanicsProblem(
-        mesh, vec=3, dim=3, ele_type=ele_type,
+        mesh, vec=3, dim=3, ele_type=ele_type, gauss_order=2,
         dirichlet_bc_info=dirichlet_bc_info,
         location_fns=location_fns
     )

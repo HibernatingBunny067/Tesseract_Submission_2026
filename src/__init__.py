@@ -1,1 +1,3 @@
-from .fem import forward
+"""
+Tesseract Biomechanics Package
+"""
