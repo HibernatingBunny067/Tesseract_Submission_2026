@@ -260,7 +260,7 @@ def vector_jacobian_product(
 
 
 def abstract_eval(
-    abstract_inputs: InputSchema
+    inputs: InputSchema
 ) -> dict[str, Any]:
     return {
         "mean_porosity": {"shape": (), "dtype": "float64"},

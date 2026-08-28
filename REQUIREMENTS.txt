@@ -37,11 +37,13 @@ gitdb==4.0.12
 GitPython==3.1.59
 gmsh==4.15.2
 google-auth==2.56.3
+google-genai>=1.0.0
 graphene==3.4.3
 graphql-core==3.2.11
 graphql-relay==3.2.0
 gunicorn==26.1.0
 h11==0.16.0
+httpx>=0.28.0
 httptools==0.8.0
 huey==3.3.4
 idna==3.18
@@ -56,6 +58,7 @@ joblib==1.5.3
 jsonschema==4.26.0
 jsonschema-specifications==2025.9.1
 kiwisolver==1.5.0
+langgraph>=0.4.0
 loguru==0.7.3
 lz4==4.4.5
 Mako==1.4.1

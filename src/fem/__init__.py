@@ -1,1 +1,3 @@
-from .forward import solve_fem, solve_fem_differentiable
+"""
+FEM Package for Differentiable Biomechanics
+"""
