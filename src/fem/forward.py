@@ -16,8 +16,17 @@ ADJOINT_SOLVER_OPTIONS = {
     "spsolve_solver": {}
 }
 
-mesh_path = os.path.join(os.path.dirname(__file__), "data", "model.msh")
-if os.path.exists(mesh_path):
+mesh_path_base = os.path.join(os.path.dirname(__file__), "data", "model.msh")
+mesh_path_morphed = os.path.join(os.path.dirname(__file__), "data", "morphed_model.msh")
+
+if os.path.exists(mesh_path_morphed):
+    mesh_path = mesh_path_morphed
+elif os.path.exists(mesh_path_base):
+    mesh_path = mesh_path_base
+else:
+    mesh_path = None
+
+if mesh_path is not None:
     problem = build_problem(mesh_path)
     # Differentiable wrapper banao jo reverse-mode adjoint chalaega
     fwd_pred = ad_wrapper(

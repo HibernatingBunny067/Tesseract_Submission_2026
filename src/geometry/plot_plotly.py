@@ -2,6 +2,7 @@ import meshio
 import pyvista as pv
 import numpy as np
 import plotly.graph_objects as go
+from src.geometry.morph import FFD_NX, FFD_NY, FFD_NZ
 
 
 def evaluate_tpms_3d(k, X, Y, Z, tpms_type="primitive"):
@@ -128,7 +129,7 @@ def evaluate_filleted_sandwich_field(
     
     # 5. 3-Layer Sandwich Skin Shell (Independent Top, Bottom, and Perimeter)
     is_outer_skin = (
-        (Y >= (0.018 - t_top)) |
+        (Y >= (0.017 - t_top)) |
         (Y <= (0.011 + t_bottom)) |
         (np.abs(Z) >= (0.008 - t_perim)) |
         (X <= (0.030 + t_perim)) |
@@ -146,7 +147,7 @@ def evaluate_filleted_sandwich_field(
     return V, inside_box, is_outer_skin, is_hole
 
 
-def get_mesh_plotly_fig(mesh_path, tau_values=None, clip_axis=None, tpms_type="primitive", fillet_radius=0.0012, screw_spacing=0.015, bridge_span=0.030, t_top=0.0002, t_bottom=0.0002, skin_thickness=None):
+def get_mesh_plotly_fig(mesh_path, tau_values=None, clip_axis=None, tpms_type="primitive", fillet_radius=0.0012, screw_spacing=0.015, bridge_span=0.030, t_top=0.0002, t_bottom=0.0002, skin_thickness=None, bend_y_array=None, bend_z_array=None):
     if skin_thickness is not None:
         t_top = skin_thickness
         t_bottom = skin_thickness
@@ -204,7 +205,7 @@ def get_mesh_plotly_fig(mesh_path, tau_values=None, clip_axis=None, tpms_type="p
     if render_true_tpms:
         from skimage.measure import marching_cubes
         
-        nx, ny, nz = 220, 36, 44
+        nx, ny, nz = 280, 60, 60
         x_min, x_max = 0.028, 0.132
         y_min, y_max = 0.010, 0.019
         
@@ -232,6 +233,24 @@ def get_mesh_plotly_fig(mesh_path, tau_values=None, clip_axis=None, tpms_type="p
             verts[:, 0] += x_min
             verts[:, 1] += y_min
             verts[:, 2] += z_min
+
+            # IMPORTANT: Warp the generated 3D lattice points back into the CAD morphed shape
+            if bend_y_array is not None and bend_z_array is not None:
+                try:
+                    from pygem.ffd import FFD
+                    ffd = FFD()
+                    ffd.box_length = [0.18, 0.05, 0.05]
+                    ffd.box_origin = [-0.01, -0.025, -0.025]
+                    ffd.n_control_points = [FFD_NX, FFD_NY, FFD_NZ]
+                    bend_y_arr = np.atleast_1d(bend_y_array)
+                    bend_z_arr = np.atleast_1d(bend_z_array)
+                    for _i in range(FFD_NX - 2):
+                        if _i < len(bend_y_arr):
+                            ffd.array_mu_y[_i+1, :, :] = bend_y_arr[_i]
+                            ffd.array_mu_z[_i+1, :, :] = bend_z_arr[_i]
+                    verts = ffd(verts)
+                except Exception as e:
+                    print(f"Failed to apply FFD to STL/Plotly vertices: {e}")
             
             # Har vertex ke local region ke hisaab se color do
             # Solid outer skin ko sleek metallic slate do, internal TPMS lattice ko local gradient color do
@@ -391,7 +410,7 @@ def get_von_mises_plotly_fig(
 
     # 2. Remeshed 3D TPMS Implant Surface with Micro-Scale Stress & FoS
     if render_true_tpms:
-        nx, ny, nz = 220, 36, 44
+        nx, ny, nz = 280, 60, 60
         x_min, x_max = 0.028, 0.132
         y_min, y_max = 0.010, 0.019
         z_min, z_max = (0.0, 0.009) if clip_axis == 'z' else (-0.009, 0.009)
@@ -415,6 +434,24 @@ def get_von_mises_plotly_fig(
             verts[:, 0] += x_min
             verts[:, 1] += y_min
             verts[:, 2] += z_min
+
+            # IMPORTANT: Warp the generated 3D lattice points back into the CAD morphed shape
+            if bend_y_array is not None and bend_z_array is not None:
+                try:
+                    from pygem.ffd import FFD
+                    ffd = FFD()
+                    ffd.box_length = [0.18, 0.05, 0.05]
+                    ffd.box_origin = [-0.01, -0.025, -0.025]
+                    ffd.n_control_points = [FFD_NX, FFD_NY, FFD_NZ]
+                    bend_y_arr = np.atleast_1d(bend_y_array)
+                    bend_z_arr = np.atleast_1d(bend_z_array)
+                    for _i in range(FFD_NX - 2):
+                        if _i < len(bend_y_arr):
+                            ffd.array_mu_y[_i+1, :, :] = bend_y_arr[_i]
+                            ffd.array_mu_z[_i+1, :, :] = bend_z_arr[_i]
+                    verts = ffd(verts)
+                except Exception as e:
+                    print(f"Failed to apply FFD to STL/Plotly vertices: {e}")
 
             # Build KDTree on FEA implant plate nodes for spatial stress interpolation
             plate_node_indices = np.unique(cells[cell_tags == 10].ravel())
@@ -557,7 +594,7 @@ def get_von_mises_plotly_fig(
     return fig
 
 
-def generate_tpms_stl_bytes(tau_values, tpms_type="primitive", fillet_radius=0.0012, screw_spacing=0.015, bridge_span=0.030, t_top=0.0002, t_bottom=0.0002, skin_thickness=None) -> bytes:
+def generate_tpms_stl_bytes(tau_values, tpms_type="primitive", fillet_radius=0.0012, screw_spacing=0.015, bridge_span=0.030, t_top=0.0002, t_bottom=0.0002, skin_thickness=None, bend_y_array=None, bend_z_array=None) -> bytes:
     if skin_thickness is not None:
         t_top = skin_thickness
         t_bottom = skin_thickness
@@ -579,7 +616,7 @@ def generate_tpms_stl_bytes(tau_values, tpms_type="primitive", fillet_radius=0.0
     else:
         t_bridge = 0.65
         
-    nx, ny, nz = 220, 36, 44
+    nx, ny, nz = 280, 60, 60
     x_min, x_max = 0.028, 0.132
     y_min, y_max = 0.010, 0.019
     z_min, z_max = -0.009, 0.009
@@ -603,6 +640,24 @@ def generate_tpms_stl_bytes(tau_values, tpms_type="primitive", fillet_radius=0.0
     verts[:, 0] += x_min
     verts[:, 1] += y_min
     verts[:, 2] += z_min
+
+    # IMPORTANT: Warp the generated 3D lattice points back into the CAD morphed shape
+    if bend_y_array is not None and bend_z_array is not None:
+        try:
+            from pygem.ffd import FFD
+            ffd = FFD()
+            ffd.box_length = [0.18, 0.05, 0.05]
+            ffd.box_origin = [-0.01, -0.025, -0.025]
+            ffd.n_control_points = [FFD_NX, FFD_NY, FFD_NZ]
+            bend_y_arr = np.atleast_1d(bend_y_array)
+            bend_z_arr = np.atleast_1d(bend_z_array)
+            for _i in range(FFD_NX - 2):
+                if _i < len(bend_y_arr):
+                    ffd.array_mu_y[_i+1, :, :] = bend_y_arr[_i]
+                    ffd.array_mu_z[_i+1, :, :] = bend_z_arr[_i]
+            verts = ffd(verts)
+        except Exception as e:
+            print(f"Failed to apply FFD to STL/Plotly vertices: {e}")
     
     # CAD slicer ke liye millimeters me scale karo
     verts_mm = (verts * 1000.0).astype(np.float32)

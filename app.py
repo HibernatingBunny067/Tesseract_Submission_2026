@@ -3,6 +3,10 @@ import sys
 import time
 import datetime
 import streamlit as st
+import importlib
+import src.geometry.morph
+importlib.reload(src.geometry.morph)
+from src.geometry.morph import FFD_NX
 import numpy as np
 import pandas as pd
 import logging
@@ -25,6 +29,7 @@ from src.agent.agent import parse_design_request
 from src.agent.optimize import run_optimization
 from src.geometry.plot_plotly import get_mesh_plotly_fig, get_von_mises_plotly_fig, generate_tpms_stl_bytes
 from src.fem.forward import solve_fem
+from src.agent.optimize_cad import run_cad_shape_optimization
 from src.fem.problem import compute_nodal_von_mises_stress
 from src.fem.materials import BIOMATERIALS
 from src.fem.validation import run_insilico_validation_suite
@@ -92,7 +97,7 @@ st.markdown(build_css(), unsafe_allow_html=True)
 st.markdown(
     hero_banner(
         title="🦴 Tesseract Differentiable Simulation",
-        subtitle="Agentic Biomechanical Implant Optimization · Dual Tesseract REST Engines · Hybrid Adam + L-BFGS",
+        subtitle="Agentic Biomechanical Implant Optimization · Dual Tesseract REST Engines · Adam",
         accent_word="Differentiable Simulation",
     ),
     unsafe_allow_html=True,
@@ -311,7 +316,9 @@ with col_geo:
                 tau_values=[0.10, 0.10, 0.10, 0.10, 0.10],
                 tpms_type=tpms_type_code,
                 fillet_radius=fillet_radius_m,
-                screw_spacing=screw_spacing_m
+                screw_spacing=screw_spacing_m,
+                bend_y_array=st.session_state.get("final_bend_y", None),
+                bend_z_array=st.session_state.get("final_bend_z", None)
             ),
             use_container_width=True,
             key="geo_base"
@@ -327,7 +334,64 @@ with col_opt:
     st.markdown(section_label("🧪", "Tesseract Differentiable Optimization Engine"), unsafe_allow_html=True)
 
     if req:
+        st.markdown(section_label("🔧", "Phase 1: Macro CAD Shape Optimization (PyGeM)"), unsafe_allow_html=True)
+        target_disp = req.target_fracture_displacement
+        if st.session_state.get("cad_success", False):
+            st.success("✅ CAD Shape Morphing Applied! The 3D view has been updated. Proceed to Phase 2.")
+            if "final_cad_html" in st.session_state:
+                st.markdown(st.session_state.final_cad_html, unsafe_allow_html=True)
+                
+        if st.button("🚀 Start CAD Shape Morphing (Adam Optimization)", use_container_width=True):
+            cad_status_ph = st.empty()
+            cad_prog_ph = st.empty()
+            
+            base_mesh = os.path.join(os.path.dirname(__file__), "src", "fem", "data", "model.msh")
+            morphed_mesh = os.path.join(os.path.dirname(__file__), "src", "fem", "data", "morphed_model.msh")
+            
+            # Reset session state for arrays
+            if "final_bend_y" in st.session_state:
+                del st.session_state["final_bend_y"]
+            if "final_bend_z" in st.session_state:
+                del st.session_state["final_bend_z"]
+                
+            for state in run_cad_shape_optimization(base_mesh, morphed_mesh, target_disp=target_disp, max_steps=10):
+                # Build a detailed HTML table for all control points
+                table_html = "<table style='width:100%; text-align:center; font-size: 0.85rem; margin-top: 10px; border-collapse: collapse;'>"
+                table_html += "<tr style='border-bottom: 1px solid #444; padding-bottom: 5px;'><th>Control Point</th><th>X Location</th><th>&Delta; Y Disp</th><th>&Delta; Z Disp</th></tr>"
+                
+                if "all_bend_y" in state and "all_bend_z" in state:
+                    st.session_state.final_bend_y = state["all_bend_y"]
+                    st.session_state.final_bend_z = state["all_bend_z"]
+                    for idx, (y_val, z_val) in enumerate(zip(state["all_bend_y"], state["all_bend_z"])):
+                        # physical X location of the slice
+                        x_spacing = 0.18 / (FFD_NX - 1)
+                        x_loc = -0.01 + (idx + 1) * x_spacing
+                        table_html += f"<tr style='border-bottom: 1px solid #333;'><td>P{idx+1}</td><td>{x_loc*1000:.1f} mm</td><td style='color: {"#4ade80" if y_val > 0 else "#f87171" if y_val < 0 else "#ccc"}'>{y_val*1000:+.3f} mm</td><td style='color: {"#4ade80" if z_val > 0 else "#f87171" if z_val < 0 else "#ccc"}'>{z_val*1000:+.3f} mm</td></tr>"
+                table_html += "</table>"
+                
+                phase_label = state.get('phase', f"Step {state['step']+1}/10")
+                html_block = f"""<div class='glass-card' style='padding:1rem; border-left:4px solid #8b5cf6;'>
+                        <b>PyGeM FFD: {phase_label}</b><br/>
+                        Loss: {state['loss']:.2f} | Motion: {state['frac_disp']*1000:.3f} mm<br/>
+                        {table_html}
+                    </div>"""
+                cad_status_ph.markdown(html_block, unsafe_allow_html=True)
+                st.session_state.final_cad_html = html_block
+                cad_prog_ph.progress(min((state['step'] + 1) / 10.0, 1.0))
+            
+            st.session_state.use_morphed_mesh = True
+            import importlib
+            import src.fem.forward
+            import src.geometry.plot_plotly
+            importlib.reload(src.fem.forward)
+            importlib.reload(src.geometry.plot_plotly)
+            st.session_state.cad_success = True
+            st.rerun()
+
+        st.markdown(section_label("🔬", "Phase 2: TPMS Micro-Lattice Optimization"), unsafe_allow_html=True)
         start_button = st.button("🚀 Start JAX-FEM Adjoint Optimization", use_container_width=True)
+        if start_button:
+            st.session_state.cad_success = False
 
         progress_ph = st.empty()
         status_ph   = st.empty()
@@ -665,10 +729,12 @@ if current_results is not None and current_results.get("last_tau") is not None:
         else:
             with r1:
                 st.caption(f"🔬 3D {tpms_choice.split('·')[0].strip()} Solid Surface (Top: {t_top_mm:.2f}mm · Core: {h_tpms_mm:.2f}mm · Bot: {t_bot_mm:.2f}mm · Bridge: {bridge_span_mm:.1f}mm)")
-                st.plotly_chart(get_mesh_plotly_fig(mesh_path, tau_values=last_tau, tpms_type=tpms_type_code, fillet_radius=fillet_radius_m, screw_spacing=screw_spacing_m, bridge_span=bridge_span_m, t_top=t_top_m, t_bottom=t_bot_m), use_container_width=True, key="final_ext")
+                bend_y = st.session_state.get("final_bend_y", None)
+            bend_z = st.session_state.get("final_bend_z", None)
+            st.plotly_chart(get_mesh_plotly_fig(mesh_path, tau_values=last_tau, tpms_type=tpms_type_code, fillet_radius=fillet_radius_m, screw_spacing=screw_spacing_m, bridge_span=bridge_span_m, t_top=t_top_m, t_bottom=t_bot_m, bend_y_array=bend_y, bend_z_array=bend_z), use_container_width=True, key="final_ext")
             with r2:
                 st.caption(f"🔬 Internal TPMS Porosity Gradient (Z-cut Sagittal View)")
-                st.plotly_chart(get_mesh_plotly_fig(mesh_path, tau_values=last_tau, clip_axis="z", tpms_type=tpms_type_code, fillet_radius=fillet_radius_m, screw_spacing=screw_spacing_m, bridge_span=bridge_span_m, t_top=t_top_m, t_bottom=t_bot_m), use_container_width=True, key="final_int")
+                st.plotly_chart(get_mesh_plotly_fig(mesh_path, tau_values=last_tau, clip_axis="z", tpms_type=tpms_type_code, fillet_radius=fillet_radius_m, screw_spacing=screw_spacing_m, bridge_span=bridge_span_m, t_top=t_top_m, t_bottom=t_bot_m, bend_y_array=bend_y, bend_z_array=bend_z), use_container_width=True, key="final_int")
 
     # 5. Direct 3D slicer ke liye binary STL file download section
     st.markdown("---")
@@ -676,7 +742,9 @@ if current_results is not None and current_results.get("last_tau") is not None:
     exp_col1, exp_col2 = st.columns(2, gap="large")
     
     with exp_col1:
-        stl_bytes = generate_tpms_stl_bytes(last_tau, tpms_type=tpms_type_code, fillet_radius=fillet_radius_m, screw_spacing=screw_spacing_m, bridge_span=bridge_span_m, t_top=t_top_m, t_bottom=t_bot_m)
+        bend_y = st.session_state.get("final_bend_y", None)
+        bend_z = st.session_state.get("final_bend_z", None)
+        stl_bytes = generate_tpms_stl_bytes(last_tau, tpms_type=tpms_type_code, fillet_radius=fillet_radius_m, screw_spacing=screw_spacing_m, bridge_span=bridge_span_m, t_top=t_top_m, t_bottom=t_bot_m, bend_y_array=bend_y, bend_z_array=bend_z)
         st.download_button(
             label=f"🖨️ Download 3D-Printable {tpms_choice.split('·')[0].strip()} STL (.stl)",
             data=stl_bytes,
