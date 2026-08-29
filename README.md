@@ -151,6 +151,15 @@ Every synthesized implant is subjected to an automated 4-part in-silico testing 
 * **Docker:** Docker Desktop installed and running
 * **Python:** 3.12 (if running in local virtual environment)
 
+### Environment Setup (LLM Agent Keys)
+To enable the LangGraph Multi-Agent AI Orchestrator, create a `.env` file in the root directory and add your API keys. If no keys are provided, the system gracefully degrades to a local NLP regex parser.
+```bash
+touch .env
+# Add either Gemini or Groq keys (or both):
+echo "GEMINI_API_KEY=your_gemini_key_here" >> .env
+echo "GROQ_API_KEY=your_groq_key_here" >> .env
+```
+
 ### Option A: One-Click Docker Compose (Recommended)
 
 From the root of the repository, launch the full 3-tier microservice stack:
