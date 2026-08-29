@@ -295,53 +295,20 @@ $$
 
 #### Mathematical Component Definitions:
 
-* **Micro-Motion Target Loss:**
-$$
-\mathcal{L}_{\text{motion}} = 2.0 \cdot \left( 22.0 \cdot \frac{\delta_{\text{achieved}}(\theta) - \delta_{\text{target}}}{\delta_{\text{target}}} \right)^2
-$$
-
-* **Global Compliance Loss (Strain Energy):**
-$$
-\mathcal{C}(u) = \frac{1}{2} u^T K(\theta) u = \frac{1}{2} \int_{\Omega} \varepsilon(u) : \mathbb{C}(\theta) : \varepsilon(u) \, d\Omega
-$$
-
-* **Mass Fraction Penalty:**
-$$
-\mathcal{L}_{\text{mass}} = 10.0 \cdot \text{ReLU}\left(\frac{\text{Mass}(\theta)}{\text{Mass}_{\text{solid}}} - \text{MaxMass}\right)^2
-$$
-
-* **ASTM Factor of Safety Barrier:**
-$$
-\mathcal{B}_{\text{FoS}} = 75.0 \cdot \text{ReLU}\left(1.75 - \frac{\sigma_{\text{yield}}}{\sigma_{\text{peak}}(\theta)}\right)^2
-$$
-
-* **Manufacturing Geometric Barrier:**
-$$
-\mathcal{B}_{\text{geom}} = 50.0 \cdot \left( \text{ReLU}(0.35\text{ mm} - t_{\text{top}})^2 + \text{ReLU}(0.35\text{ mm} - t_{\text{bot}})^2 \right)
-$$
+* **Micro-Motion Target Loss:** $\mathcal{L}_{\text{motion}} = 2.0 \cdot \left( 22.0 \cdot \frac{\delta_{\text{achieved}}(\theta) - \delta_{\text{target}}}{\delta_{\text{target}}} \right)^2$
+* **Global Compliance Loss (Strain Energy):** $\mathcal{C}(u) = \frac{1}{2} u^T K(\theta) u = \frac{1}{2} \int_{\Omega} \varepsilon(u) : \mathbb{C}(\theta) : \varepsilon(u) \, d\Omega$
+* **Mass Fraction Penalty:** $\mathcal{L}_{\text{mass}} = 10.0 \cdot \operatorname{ReLU}\left(\frac{\text{Mass}(\theta)}{\text{Mass}_{\text{solid}}} - \text{MaxMass}\right)^2$
+* **ASTM Factor of Safety Barrier:** $\mathcal{B}_{\text{FoS}} = 75.0 \cdot \operatorname{ReLU}\left(1.75 - \frac{\sigma_{\text{yield}}}{\sigma_{\text{peak}}(\theta)}\right)^2$
+* **Manufacturing Geometric Barrier:** $\mathcal{B}_{\text{geom}} = 50.0 \cdot \left( \operatorname{ReLU}(0.35\text{ mm} - t_{\text{top}})^2 + \operatorname{ReLU}(0.35\text{ mm} - t_{\text{bot}})^2 \right)$
 
 ---
 
 ### 5.3 Minimal Surface Metamaterial Topology Architectures
 The 3D microstructure is defined by implicit minimal surface level-set equations where the material domain is $\Omega_{\text{solid}} = \{ \mathbf{x} \in \mathbb{R}^3 \mid F(\mathbf{x}) - \tau(\mathbf{x}) \le 0 \}$:
 
-* **Schwarz Primitive (P-Surface):**
-$$
-F_P(\mathbf{x}) = \cos\left(\frac{2\pi x}{d}\right) + \cos\left(\frac{2\pi y}{d}\right) + \cos\left(\frac{2\pi z}{d}\right)
-$$
-*(Biomechanical Advantage: Maximizes fluid permeability and osteoblast vascularization)*
-
-* **Schoen Gyroid (G-Surface):**
-$$
-F_G(\mathbf{x}) = 1.5 \left[ \sin\left(\frac{2\pi x}{d}\right)\cos\left(\frac{2\pi y}{d}\right) + \sin\left(\frac{2\pi y}{d}\right)\cos\left(\frac{2\pi z}{d}\right) + \sin\left(\frac{2\pi z}{d}\right)\cos\left(\frac{2\pi x}{d}\right) \right]
-$$
-*(Biomechanical Advantage: Completely isotropic compliance tensor with superior shear strength)*
-
-* **Schwarz Diamond (D-Surface):**
-$$
-F_D(\mathbf{x}) = 1.8 \left[ \cos\left(\frac{2\pi x}{d}\right)\cos\left(\frac{2\pi y}{d}\right)\cos\left(\frac{2\pi z}{d}\right) - \sin\left(\frac{2\pi x}{d}\right)\sin\left(\frac{2\pi y}{d}\right)\sin\left(\frac{2\pi z}{d}\right) \right]
-$$
-*(Biomechanical Advantage: High nodal connectivity providing maximal torsional rigidity)*
+* **Schwarz Primitive (P-Surface):** $F_P(\mathbf{x}) = \cos\left(\frac{2\pi x}{d}\right) + \cos\left(\frac{2\pi y}{d}\right) + \cos\left(\frac{2\pi z}{d}\right)$ — *Maximizes fluid permeability and osteoblast vascularization.*
+* **Schoen Gyroid (G-Surface):** $F_G(\mathbf{x}) = 1.5 \left[ \sin\left(\frac{2\pi x}{d}\right)\cos\left(\frac{2\pi y}{d}\right) + \sin\left(\frac{2\pi y}{d}\right)\cos\left(\frac{2\pi z}{d}\right) + \sin\left(\frac{2\pi z}{d}\right)\cos\left(\frac{2\pi x}{d}\right) \right]$ — *Completely isotropic compliance tensor with superior shear strength.*
+* **Schwarz Diamond (D-Surface):** $F_D(\mathbf{x}) = 1.8 \left[ \cos\left(\frac{2\pi x}{d}\right)\cos\left(\frac{2\pi y}{d}\right)\cos\left(\frac{2\pi z}{d}\right) - \sin\left(\frac{2\pi x}{d}\right)\sin\left(\frac{2\pi y}{d}\right)\sin\left(\frac{2\pi z}{d}\right) \right]$ — *High nodal connectivity providing maximal torsional rigidity.*
 
 ---
 
