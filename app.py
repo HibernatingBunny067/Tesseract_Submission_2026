@@ -333,24 +333,26 @@ col_geo, col_opt = st.columns([1, 1], gap="large")
 
 with col_geo:
     st.markdown(section_label("📐", "Anatomical Model & Fixation Geometry"), unsafe_allow_html=True)
+    geo_ph = st.empty()
     if os.path.exists(mesh_path):
-        if cad_bend_y is not None and len(cad_bend_y) > 0:
-            st.caption("🔧 *Morphed Patient-Specific CAD Anatomy Active*")
-        st.plotly_chart(
-            get_mesh_plotly_fig(
-                mesh_path,
-                tau_values=[0.10, 0.10, 0.10, 0.10, 0.10],
-                tpms_type=tpms_type_code,
-                fillet_radius=fillet_radius_m,
-                screw_spacing=screw_spacing_m,
-                bend_y_array=cad_bend_y,
-                bend_z_array=cad_bend_z,
-            ),
-            width="stretch",
-            key="geo_base"
-        )
+        with geo_ph.container():
+            if cad_bend_y is not None and len(cad_bend_y) > 0:
+                st.caption("🔧 *Morphed Patient-Specific CAD Anatomy Active*")
+            st.plotly_chart(
+                get_mesh_plotly_fig(
+                    mesh_path,
+                    tau_values=None,
+                    tpms_type=tpms_type_code,
+                    fillet_radius=fillet_radius_m,
+                    screw_spacing=screw_spacing_m,
+                    bend_y_array=cad_bend_y,
+                    bend_z_array=cad_bend_z,
+                ),
+                width="stretch",
+                key="geo_base"
+            )
     else:
-        st.warning("No mesh found. Run the mesh generator first.")
+        geo_ph.warning("No mesh found. Run the mesh generator first.")
 
 optimization_finished = False
 opt_results = {}
@@ -508,6 +510,23 @@ with col_opt:
                         morph_ph.markdown(done_html, unsafe_allow_html=True)
                     st.toast("✅ Stage 1 FFD CAD Morphing Complete: Solid mesh morphed to patient anatomy", icon="🔧")
                     
+                    # Update the top 3D viewer to show the morphed SOLID geometry before Stage 2 starts
+                    if 'geo_ph' in locals():
+                        with geo_ph.container():
+                            st.caption("🔧 *Stage 1 Complete: Morphed Patient-Specific CAD Anatomy Active*")
+                            st.plotly_chart(
+                                get_mesh_plotly_fig(
+                                    morphed_mesh,
+                                    tau_values=None, # Keep it solid
+                                    tpms_type=tpms_type_code,
+                                    fillet_radius=fillet_radius_m,
+                                    screw_spacing=screw_spacing_m,
+                                    bend_y_array=st.session_state.get("cad_bend_y"),
+                                    bend_z_array=st.session_state.get("cad_bend_z"),
+                                ),
+                                width="stretch",
+                                key="geo_morphed_post"
+                            )
                 except Exception as morph_err:
                     morph_ph.empty()
                     st.warning(f"Stage 1 CAD morphing warning: {morph_err}. Continuing with base mesh.")
