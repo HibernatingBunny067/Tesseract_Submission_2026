@@ -9,7 +9,7 @@
 
 > **Track:** Engineering & Inverse Design / Scientific Simulation & Inverse Problems
 
-![Tesseract Biomechanics Demo](artifacts/demo.png)
+![Tesseract Biomechanics Demo](images/demo.png)
 
 ---
 
