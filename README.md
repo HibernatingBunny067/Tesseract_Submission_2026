@@ -9,6 +9,8 @@
 
 > **Track:** Engineering & Inverse Design / Scientific Simulation & Inverse Problems
 
+![Tesseract Biomechanics Demo](artifacts/demo.png)
+
 ---
 
 ## 🌟 The Elevator Pitch
