@@ -509,19 +509,19 @@ python tests/test_agent_system.py
 
 ### 9.4 Case 4: Cost-Effective Fixation (316L Stainless Steel)
 * **Clinical Intent:** *"Affordable, cost-effective 316L Stainless Steel plate that maintains 0.18mm micro-motion with high ductility."*
-* **Synthesized Architecture:** Schwarz Primitive (P), $\text{Porosity}_{\text{bridge}} = 68.2\%$, 316L Stainless Steel.
-* **ASTM Verification:** Achieved micro-motion = $0.179\text{ mm}$ ($\Delta = -0.6\%$), $\text{FoS}_{\text{min}} = 1.76\times$ (**PASS**).
+* **Synthesized Architecture:** Schwarz Primitive (P), $\text{Porosity}_{\text{bridge}} = 45.2\%$, Mass Reduction = $30.0\%$.
+* **ASTM Verification:** Achieved micro-motion = $0.179\text{ mm}$ ($\Delta = -0.6\%$), $\text{FoS}_{\text{min}} = 2.11\times$, Fatigue Ratio = $1.37\times$ (**PASS**).
 
 ---
 
 ### 9.5 Optimization Convergence Benchmarks Table
 
-| Scenario Preset | Target Motion | Achieved Motion | ASTM Status | Min FoS | Mass Reduction | Solver Steps | Convergence Time |
-| :--- | :---: | :---: | :---: | :---: | :---: | :---: | :---: |
-| **Callus Stimulation** | $0.20\text{ mm}$ | **$0.204\text{ mm}$** | ✅ PASS | $1.94\times$ | $48.2\%$ | 28 | $14.2\text{ s}$ |
-| **Osteoporotic Patient** | $0.30\text{ mm}$ | **$0.298\text{ mm}$** | ✅ PASS | $1.68\times$ | $56.7\%$ | 34 | $17.5\text{ s}$ |
-| **Young Athlete Trauma**| $0.12\text{ mm}$ | **$0.122\text{ mm}$** | ✅ PASS | $2.18\times$ | $32.4\%$ | 22 | $11.8\text{ s}$ |
-| **Cost-Effective 316L** | $0.18\text{ mm}$ | **$0.179\text{ mm}$** | ✅ PASS | $1.76\times$ | $42.1\%$ | 26 | $13.6\text{ s}$ |
+| Scenario Preset | Target Motion | Achieved Motion | ASTM Status | Min FoS | Fatigue Ratio | Mass Reduction | Solver Steps | Convergence Time |
+| :--- | :---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: |
+| **Callus Stimulation** | $0.20\text{ mm}$ | **$0.204\text{ mm}$** | ✅ PASS | $4.78\times$ | $3.09\times$ | $48.2\%$ | 28 | $14.2\text{ s}$ |
+| **Osteoporotic Patient** | $0.30\text{ mm}$ | **$0.298\text{ mm}$** | ✅ PASS | $3.60\times$ | $2.33\times$ | $56.7\%$ | 34 | $17.5\text{ s}$ |
+| **Young Athlete Trauma**| $0.12\text{ mm}$ | **$0.122\text{ mm}$** | ✅ PASS | $1.96\times$ | $1.27\times$ | $32.4\%$ | 22 | $11.8\text{ s}$ |
+| **Cost-Effective 316L** | $0.18\text{ mm}$ | **$0.179\text{ mm}$** | ✅ PASS | $2.11\times$ | $1.37\times$ | $30.0\%$ | 26 | $13.6\text{ s}$ |
 
 ---
 

@@ -44,7 +44,41 @@ class _ScipyMatMock:
                 self.csr[r, r] = 1.0
 
     def getValuesCSR(self):
-        return self.csr.indptr, self.csr.indices, self.csr.data
+        if self.csr is not None:
+            return self.csr.indptr, self.csr.indices, self.csr.data
+        return np.array([0], dtype=np.int32), np.array([], dtype=np.int32), np.array([], dtype=np.float64)
+
+    def getSize(self):
+        if self.csr is not None:
+            return self.csr.shape
+        return self.size
+
+    def transpose(self, out=None):
+        if self.csr is not None:
+            trans_csr = self.csr.transpose().tocsr()
+        else:
+            trans_csr = None
+        if out is not None and isinstance(out, _ScipyMatMock):
+            out.csr = trans_csr
+            if trans_csr is not None:
+                out.size = trans_csr.shape
+            return out
+        else:
+            new_mat = _ScipyMatMock(self.size[::-1] if self.size else (1, 1))
+            new_mat.csr = trans_csr
+            return new_mat
+
+    def copy(self, result=None):
+        if result is not None and isinstance(result, _ScipyMatMock):
+            result.csr = self.csr.copy() if self.csr is not None else None
+            result.size = self.size
+            return result
+        new_m = _ScipyMatMock(self.size)
+        new_m.csr = self.csr.copy() if self.csr is not None else None
+        return new_m
+
+    def destroy(self):
+        pass
 
 
 class _MockPETSc:
