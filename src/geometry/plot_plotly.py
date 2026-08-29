@@ -177,41 +177,60 @@ def get_mesh_plotly_fig(
     cell_tags = np.concatenate([m.cell_data["gmsh:physical"][i] for i, cb in enumerate(m.cells) if cb.type in ('tetra', 'tetra10')])
     
     render_true_tpms = (tau_values is not None)
-    if render_true_tpms:
-        bone_mask = (cell_tags != 10)
-        cells = cells[bone_mask]
-        cell_tags = cell_tags[bone_mask]
-    
-    pv_cells = np.column_stack((np.full(len(cells), 4), cells)).ravel()
-    grid = pv.UnstructuredGrid(pv_cells, np.full(len(cells), 10), m.points)
-    grid.cell_data["tag"] = cell_tags
-    
-    if clip_axis is not None:
-        grid = grid.clip(normal=clip_axis, invert=False)
-        
-    surf = grid.extract_surface(algorithm='dataset_surface')
-    surf = surf.triangulate()
-    
-    faces = surf.faces.reshape(-1, 4)[:, 1:]
-    vertices = surf.points
-    tags = surf.cell_data["tag"]
-    
-    colors = np.zeros(len(tags), dtype=object)
-    colors[tags < 10] = "ivory"
-    
-    trabecular = (tags == 2) | (tags == 4) | (tags == 6)
-    colors[trabecular] = "indianred"
-    
-    colors[tags == 5] = "lightcoral"
-    
     fig = go.Figure()
-    
-    fig.add_trace(go.Mesh3d(
-        x=vertices[:, 0] * 1000.0, y=vertices[:, 1] * 1000.0, z=vertices[:, 2] * 1000.0,
-        i=faces[:, 0], j=faces[:, 1], k=faces[:, 2],
-        facecolor=colors, opacity=1.0, flatshading=True,
-        lighting=dict(ambient=0.4, diffuse=0.8, roughness=0.2, specular=0.4, fresnel=0.2)
-    ))
+
+    if not render_true_tpms:
+        # Base homepage view: Render complete bone-plate assembly with anatomical labels
+        pv_cells = np.column_stack((np.full(len(cells), 4), cells)).ravel()
+        grid = pv.UnstructuredGrid(pv_cells, np.full(len(cells), 10), m.points)
+        grid.cell_data["tag"] = cell_tags
+        
+        if clip_axis is not None:
+            grid = grid.clip(normal=clip_axis, invert=False)
+            
+        surf = grid.extract_surface(algorithm='dataset_surface').triangulate()
+        faces = surf.faces.reshape(-1, 4)[:, 1:]
+        vertices = surf.points
+        tags = surf.cell_data["tag"]
+        
+        colors = np.zeros(len(tags), dtype=object)
+        colors[tags < 10] = "#f8fafc"  # Cortical Bone (Ivory)
+        trabecular = (tags == 2) | (tags == 4) | (tags == 6)
+        colors[trabecular] = "#fb7185"  # Trabecular Core (Cancellous Bone)
+        colors[tags == 5] = "#fbbf24"   # 2.0mm Fracture Gap Callus
+        colors[tags == 10] = "#38bdf8"  # Fixation Implant Plate (Ti-6Al-4V)
+        
+        fig.add_trace(go.Mesh3d(
+            x=vertices[:, 0] * 1000.0, y=vertices[:, 1] * 1000.0, z=vertices[:, 2] * 1000.0,
+            i=faces[:, 0], j=faces[:, 1], k=faces[:, 2],
+            facecolor=colors, opacity=1.0, flatshading=True,
+            name="Bone-Implant Assembly",
+            lighting=dict(ambient=0.45, diffuse=0.85, roughness=0.15, specular=0.45, fresnel=0.25)
+        ))
+
+        # Add 3D Anatomical & Implant Callout Labels
+        fig.add_trace(go.Scatter3d(
+            x=[35.0, 80.0, 125.0, 80.0],
+            y=[13.0, 13.0, 13.0, 20.0],
+            z=[0.0, 0.0, 0.0, 0.0],
+            mode="markers+text",
+            marker=dict(size=[5, 6, 5, 6], color=["#f8fafc", "#fbbf24", "#f8fafc", "#38bdf8"]),
+            text=[
+                "🦴 Proximal Femur (E=18 GPa)",
+                "⚡ 2.0mm Fracture Gap (E=1 MPa)",
+                "🦴 Distal Femur (E=18 GPa)",
+                "🔩 Fixation Plate (E=110 GPa)"
+            ],
+            textposition=[
+                "top center",
+                "bottom center",
+                "top center",
+                "top center"
+            ],
+            textfont=dict(size=11, color="#ffffff", family="Inter, sans-serif"),
+            name="Anatomical Labels",
+            hoverinfo="text"
+        ))
     
     if render_true_tpms:
         from skimage.measure import marching_cubes
@@ -369,44 +388,7 @@ def get_von_mises_plotly_fig(
     render_true_tpms = (tau_values is not None)
     fig = go.Figure()
 
-    # 1. Bone Mesh (Tags < 10)
-    bone_mask = (cell_tags != 10)
-    bone_cells = cells[bone_mask]
-    bone_tags = cell_tags[bone_mask]
-
-    pv_bone_cells = np.column_stack((np.full(len(bone_cells), 4), bone_cells)).ravel()
-    grid_bone = pv.UnstructuredGrid(pv_bone_cells, np.full(len(bone_cells), 10), points)
-    grid_bone.cell_data["tag"] = bone_tags
-    
-    if mode == "fos":
-        bone_scalars = np.clip(130.0 / (nodal_vm_stress + 1e-4), 0.0, 10.0)
-    else:
-        bone_scalars = nodal_vm_stress
-    grid_bone.point_data["field_data"] = bone_scalars
-
-    if clip_axis is not None:
-        grid_bone = grid_bone.clip(normal=clip_axis, invert=False)
-
-    surf_bone = grid_bone.extract_surface(algorithm='dataset_surface').triangulate()
-    bone_faces = surf_bone.faces.reshape(-1, 4)[:, 1:]
-    bone_verts = surf_bone.points
-    bone_values = surf_bone.point_data["field_data"]
-
-    # Add Bone 3D Trace (scaled to mm)
-    fig.add_trace(go.Mesh3d(
-        x=bone_verts[:, 0] * 1000.0, y=bone_verts[:, 1] * 1000.0, z=bone_verts[:, 2] * 1000.0,
-        i=bone_faces[:, 0], j=bone_faces[:, 1], k=bone_faces[:, 2],
-        intensity=bone_values,
-        colorscale="Greys" if mode == "stress" else "RdYlGn",
-        cmin=0.0,
-        cmax=float(np.percentile(bone_values, 95)) if len(bone_values) > 0 and mode == "stress" else 5.0,
-        showscale=False,
-        opacity=0.9,
-        flatshading=True,
-        lighting=dict(ambient=0.4, diffuse=0.8, roughness=0.2, specular=0.3, fresnel=0.2)
-    ))
-
-    # 2. Remeshed 3D TPMS Implant Surface with Micro-Scale Stress & FoS
+    # 1. Remeshed 3D TPMS Implant Surface with Micro-Scale Stress & FoS (Implant Only)
     if render_true_tpms:
         nx, ny, nz = 220, 36, 44
         x_min, x_max = 0.028, 0.132
@@ -439,7 +421,7 @@ def get_von_mises_plotly_fig(
                 warper = build_ffd_warper(bend_y_array, bend_z_array)
                 verts = warper(verts)
 
-            # Build KDTree on FEA implant plate nodes for spatial stress interpolation
+            # Build KDTree on FEA implant plate nodes (Tag 10) for spatial stress interpolation
             plate_node_indices = np.unique(cells[cell_tags == 10].ravel())
             plate_points = points[plate_node_indices]
             plate_stresses = nodal_vm_stress[plate_node_indices]
@@ -474,19 +456,19 @@ def get_von_mises_plotly_fig(
                     sigma_micro = macro_vm[idx] * (1.0 + 0.35 * (1.0 - local_rho))
 
                 if mode == "fos":
-                    tpms_scalars[idx] = np.clip(yield_strength_mpa / max(sigma_micro, 1e-4), 0.0, 5.0)
+                    tpms_scalars[idx] = np.clip(yield_strength_mpa / max(sigma_micro, 1.0), 0.0, 5.0)
                 else:
-                    tpms_scalars[idx] = sigma_micro
+                    tpms_scalars[idx] = max(sigma_micro, 0.0)
 
             # Colorbar and colormap selection
             if mode == "fos":
                 colorscale = "RdYlGn"
-                cmin, cmax = 0.0, 4.0
-                cb_title = "Factor of Safety (FoS)"
+                cmin, cmax = 0.5, 3.5
+                cb_title = "Factor of Safety"
             else:
                 colorscale = "Turbo"
                 cmin = 0.0
-                cmax = float(np.percentile(tpms_scalars, 98)) if len(tpms_scalars) > 0 else float(yield_strength_mpa)
+                cmax = max(float(np.percentile(tpms_scalars, 98.5)), 40.0) if len(tpms_scalars) > 0 else float(yield_strength_mpa)
                 cb_title = "Von Mises (MPa)"
 
             fig.add_trace(go.Mesh3d(
@@ -510,22 +492,47 @@ def get_von_mises_plotly_fig(
         except Exception:
             pass
     else:
+        # Fallback: Render pure solid implant plate mesh
         plate_mask = (cell_tags == 10)
         plate_cells = cells[plate_mask]
         pv_plate = np.column_stack((np.full(len(plate_cells), 4), plate_cells)).ravel()
         grid_plate = pv.UnstructuredGrid(pv_plate, np.full(len(plate_cells), 10), points)
-        grid_plate.point_data["field_data"] = nodal_vm_stress
+        
+        if mode == "fos":
+            grid_plate.point_data["field_data"] = np.clip(yield_strength_mpa / np.maximum(nodal_vm_stress, 1.0), 0.0, 5.0)
+            colorscale = "RdYlGn"
+            cmin, cmax = 0.5, 3.5
+            cb_title = "Factor of Safety"
+        else:
+            grid_plate.point_data["field_data"] = nodal_vm_stress
+            colorscale = "Turbo"
+            cmin, cmax = 0.0, max(float(np.percentile(nodal_vm_stress, 98.5)), 40.0)
+            cb_title = "Von Mises (MPa)"
+
         if clip_axis is not None:
             grid_plate = grid_plate.clip(normal=clip_axis, invert=False)
+            
         surf_plate = grid_plate.extract_surface(algorithm='dataset_surface').triangulate()
+        plate_faces = surf_plate.faces.reshape(-1, 4)[:, 1:]
         fig.add_trace(go.Mesh3d(
             x=surf_plate.points[:, 0] * 1000.0, y=surf_plate.points[:, 1] * 1000.0, z=surf_plate.points[:, 2] * 1000.0,
-            i=surf_plate.faces.reshape(-1, 4)[:, 1][:, 0],
-            j=surf_plate.faces.reshape(-1, 4)[:, 1][:, 1],
-            k=surf_plate.faces.reshape(-1, 4)[:, 1][:, 2],
+            i=plate_faces[:, 0],
+            j=plate_faces[:, 1],
+            k=plate_faces[:, 2],
             intensity=surf_plate.point_data["field_data"],
-            colorscale="Turbo" if mode == "stress" else "RdYlGn",
-            cmin=0.0, cmax=120.0, opacity=1.0
+            colorscale=colorscale,
+            cmin=cmin,
+            cmax=cmax,
+            colorbar=dict(
+                title=dict(text=cb_title, font=dict(color="#f8fafc", size=11)),
+                tickfont=dict(color="#cbd5e1", size=10),
+                thickness=14,
+                len=0.75,
+                x=1.02
+            ),
+            opacity=1.0,
+            flatshading=True,
+            lighting=dict(ambient=0.5, diffuse=0.8, roughness=0.1, specular=0.4, fresnel=0.2)
         ))
 
     layout_args = dict(

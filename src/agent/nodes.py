@@ -33,7 +33,7 @@ def _safe_log(msg: str):
 
 
 def _get_providers(role: str) -> list[LLMProvider]:
-    """Build a fallback chain of LLM providers for a given role."""
+    """Build a fallback chain of LLM providers: Groq -> Gemini -> Ollama."""
     import os
     try:
         from dotenv import load_dotenv
@@ -42,33 +42,35 @@ def _get_providers(role: str) -> list[LLMProvider]:
         pass
 
     providers: list[LLMProvider] = []
-    gemini_key = os.environ.get("GEMINI_API_KEY")
-    groq_key = os.environ.get("GROQ_API_KEY")
+    groq_key = (os.environ.get("GROQ_API_KEY") or "").strip().strip('"').strip("'")
+    gemini_key = (os.environ.get("GEMINI_API_KEY") or os.environ.get("GOOGLE_API_KEY") or "").strip().strip('"').strip("'")
 
-    if role == "materials_advisor":
-        # Groq first (fast structured output), then Gemini, then Ollama
-        if groq_key:
+    # 1. Primary: Groq LPU (Ultra-fast structured generation)
+    if groq_key and len(groq_key) > 8 and not groq_key.startswith("YOUR_"):
+        try:
             from src.agent.llm_provider import GroqProvider
             providers.append(GroqProvider(api_key=groq_key))
-        if gemini_key:
+        except Exception:
+            pass
+
+    # 2. Secondary: Google Gemini (Advanced multi-agent reasoning)
+    if gemini_key and len(gemini_key) > 8 and not gemini_key.startswith("YOUR_"):
+        try:
             from src.agent.llm_provider import GeminiProvider
             providers.append(GeminiProvider(api_key=gemini_key))
+        except Exception:
+            pass
+
+    # 3. Tertiary: Local Ollama
+    try:
         from src.agent.llm_provider import OllamaProvider
         providers.append(OllamaProvider())
-    else:
-        # Gemini first (strong reasoning), then Groq, then Ollama
-        if gemini_key:
-            from src.agent.llm_provider import GeminiProvider
-            providers.append(GeminiProvider(api_key=gemini_key))
-        if groq_key:
-            from src.agent.llm_provider import GroqProvider
-            providers.append(GroqProvider(api_key=groq_key))
-        from src.agent.llm_provider import OllamaProvider
-        providers.append(OllamaProvider())
+    except Exception:
+        pass
 
     if not providers:
         raise RuntimeError(
-            "No LLM providers available. Set GEMINI_API_KEY or GROQ_API_KEY, "
+            "No LLM providers available. Set GROQ_API_KEY or GEMINI_API_KEY, "
             "or ensure Ollama is running locally."
         )
     return providers
@@ -377,10 +379,19 @@ def optimization_controller_node(state: DesignState) -> dict:
     step_history = []
     final_step = None
 
+    # Push per-step telemetry to a shared queue for real-time UI updates
+    step_callback = state.get("step_callback")
+
     try:
         for step_data in run_optimization(**opt_kwargs):
             step_history.append(step_data)
             final_step = step_data
+            # Fire real-time callback if provided
+            if step_callback is not None:
+                try:
+                    step_callback(step_data, len(step_history))
+                except Exception:
+                    pass
 
         if final_step is None:
             raise RuntimeError("Optimization produced no output steps")

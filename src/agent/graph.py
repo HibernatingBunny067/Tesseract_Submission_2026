@@ -223,7 +223,8 @@ def run_design_agent(
     max_steps: int = 15,
     bend_y_array: Optional[List[float]] = None,
     bend_z_array: Optional[List[float]] = None,
-    stream: bool = True
+    stream: bool = True,
+    step_callback: Optional[Any] = None
 ) -> Generator[Dict[str, Any], None, DesignState]:
     """
     Top-level orchestrator entry-point for the multi-agent biomechanical system.
@@ -245,7 +246,8 @@ def run_design_agent(
         "geometry_client": geometry_client,
         "bend_y_array": bend_y_array,
         "bend_z_array": bend_z_array,
-        "final_design": None
+        "final_design": None,
+        "step_callback": step_callback
     }
 
     graph = build_design_graph()

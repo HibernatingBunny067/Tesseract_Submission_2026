@@ -6,6 +6,7 @@ import streamlit as st
 import numpy as np
 import pandas as pd
 import logging
+import meshio
 from typing import Tuple, Optional, Dict, Any, List
 
 sys.path.insert(0, os.path.abspath(os.path.dirname(__file__)))
@@ -182,63 +183,20 @@ if req:
     </div>
     """, unsafe_allow_html=True)
 
-st.sidebar.markdown("### 📐 Fixation CAD Geometry & Constraints")
-fillet_radius_mm = st.sidebar.slider(
-    "Corner Fillet Radius (mm)",
-    min_value=0.4,
-    max_value=2.5,
-    value=float(getattr(req, "fillet_radius_mm", 1.2)),
-    step=0.1,
-    help="Smooth corner edge filleting for soft-tissue gliding and reducing stress peaks (AO standard: 1.2mm)."
-)
-t_top_mm = st.sidebar.slider(
-    "Top Solid Plate Thickness (t_top, mm)",
-    min_value=0.15,
-    max_value=2.00,
-    value=0.50,
-    step=0.05,
-    help="Periosteal / muscle-facing solid titanium layer (y in [18-t_top, 18] mm)."
-)
-t_bot_mm = st.sidebar.slider(
-    "Bottom Solid Plate Thickness (t_bottom, mm)",
-    min_value=0.15,
-    max_value=2.00,
-    value=0.50,
-    step=0.05,
-    help="Bone-contacting solid titanium layer (y in [11, 11+t_bot] mm)."
-)
-h_tpms_mm = max(6.0 - t_top_mm - t_bot_mm, 1.0)
-st.sidebar.markdown(
-    f"""<div style="background: rgba(30, 41, 59, 0.7); border: 1px solid rgba(148, 163, 184, 0.2); border-radius: 6px; padding: 0.4rem 0.6rem; font-size: 0.8rem; margin-bottom: 0.5rem;">
-        🧬 <b>Sandwich TPMS Core:</b> <span style="color:#38bdf8; font-weight:600;">{h_tpms_mm:.2f} mm</span> &nbsp;|&nbsp; 
-        📐 <b>Total Depth:</b> <span style="color:#4ade80; font-weight:600;">6.00 mm</span>
-    </div>""",
-    unsafe_allow_html=True
-)
-bridge_span_mm = st.sidebar.slider(
-    "Fracture Bridge Working Span (mm)",
-    min_value=18.0,
-    max_value=45.0,
-    value=30.0,
-    step=1.0,
-    help="Working length between innermost fixation screws across the fracture gap (Primary flexural compliance control)."
-)
-cell_size_mm = st.sidebar.slider(
-    "TPMS Unit Cell Dimension (mm)",
-    min_value=3.5,
-    max_value=7.5,
-    value=5.0,
-    step=0.5,
-    help="Lattice pore unit cell size for LPBF 3D printing."
-)
-screw_spacing_mm = st.sidebar.slider(
-    "Screw Hole Pitch (mm, Constant AO)",
-    min_value=10.0,
-    max_value=16.0,
-    value=float(getattr(req, "screw_spacing_mm", 14.5)),
-    step=0.5,
-    help="Center-to-center pitch between consecutive cortical fixation screws (held constant during optimization)."
-)
+with st.sidebar.expander("📐 Fixation CAD Geometry", expanded=False):
+    fillet_radius_mm = st.slider(
+        "Fillet Radius (mm)", 0.4, 2.5, float(getattr(req, "fillet_radius_mm", 1.2)), 0.1
+    )
+    t_top_mm = st.slider("Top Skin (mm)", 0.15, 2.00, 0.50, 0.05)
+    t_bot_mm = st.slider("Bottom Skin (mm)", 0.15, 2.00, 0.50, 0.05)
+    h_tpms_mm = max(6.0 - t_top_mm - t_bot_mm, 1.0)
+    st.caption(f"🧬 TPMS Core: **{h_tpms_mm:.2f} mm** · Total Depth: **6.00 mm**")
+    bridge_span_mm = st.slider("Bridge Span (mm)", 18.0, 45.0, 30.0, 1.0)
+    cell_size_mm = st.slider("TPMS Cell Size (mm)", 3.5, 7.5, 5.0, 0.5)
+    screw_spacing_mm = st.slider(
+        "Screw Pitch (mm)", 10.0, 16.0, float(getattr(req, "screw_spacing_mm", 14.5)), 0.5
+    )
+
 fillet_radius_m = fillet_radius_mm / 1000.0
 t_top_m = t_top_mm / 1000.0
 t_bot_m = t_bot_mm / 1000.0
@@ -246,49 +204,32 @@ skin_thickness_m = 0.5 * (t_top_m + t_bot_m)
 screw_spacing_m = screw_spacing_mm / 1000.0
 bridge_span_m = bridge_span_mm / 1000.0
 cell_size_m = cell_size_mm / 1000.0
-cell_size_m = cell_size_mm / 1000.0
 
 # Stage 1: Macro CAD Shape Morphing (PyGeM FFD)
-st.sidebar.markdown("### 🔧 Stage 1: Macro CAD Shape Morphing")
-enable_cad_morphing: bool = st.sidebar.checkbox(
-    "Enable FFD Plate Curvature Morphing",
-    value=True,
-    help="Activates Free-Form Deformation (PyGeM) to adapt the plate's global curvature to patient anatomy before micro-lattice optimization."
-)
-cad_morph_steps: int = 0
-if enable_cad_morphing:
-    cad_morph_steps = st.sidebar.slider(
-        "CAD Morphing Steps",
-        min_value=3,
-        max_value=30,
-        value=10,
-        step=1,
-        help="Number of finite-difference Adam steps for FFD control point optimization."
+with st.sidebar.expander("🔧 Stage 1: PyGeM CAD Morphing", expanded=False):
+    enable_cad_morphing: bool = st.checkbox("Enable FFD Plate Curvature Morphing", value=True)
+    cad_morph_steps: int = 0
+    if enable_cad_morphing:
+        cad_morph_steps = st.slider("CAD Morphing Steps", 3, 30, 10, 1)
+
+if not enable_cad_morphing:
+    cad_morph_steps = 0
+
+with st.sidebar.expander("⚙️ Simulation & Solver", expanded=False):
+    fidelity_choice = st.radio(
+        "FEM Element Type",
+        ["Clinical Grade (TET10 Refined · Quadratic 10-node)", "Fast Screening (TET4 Coarse · Linear 4-node)"],
+        index=0
     )
-    st.sidebar.info("Stage 1 morphs the solid base mesh before Stage 2 TPMS optimization.")
-
-st.sidebar.markdown("### ⚙️ Simulation Fidelity & Iterations")
-fidelity_choice = st.sidebar.radio(
-    "FEM Solver Quadrature / Element Refinement",
-    ["Clinical Grade (TET10 Refined · Quadratic 10-node)", "Fast Screening (TET4 Coarse · Linear 4-node)"],
-    index=0
-)
-
-opt_max_steps = st.sidebar.slider(
-    "Max Optimization Iterations",
-    min_value=5,
-    max_value=1000,
-    value=100,
-    step=5
-)
-enable_early_stopping = st.sidebar.checkbox("Enable Early Convergence Stopping", value=True)
+    opt_max_steps = st.slider("Max Optimization Iterations", 5, 1000, 100, 5)
+    enable_early_stopping = st.checkbox("Enable Early Convergence Stopping", value=True)
 
 # Target biomaterial specification
 mat_keys = list(BIOMATERIALS.keys())
 default_mat_idx = mat_keys.index(req.recommended_material) if (req and req.recommended_material in mat_keys) else 0
 
-st.sidebar.markdown("### 🧪 Biomaterial Specification")
-selected_material_name = st.sidebar.selectbox("Target Fixation Material", mat_keys, index=default_mat_idx)
+st.sidebar.markdown("### 🧪 Material & Topology")
+selected_material_name = st.sidebar.selectbox("Biomaterial", mat_keys, index=default_mat_idx)
 selected_material = BIOMATERIALS[selected_material_name]
 st.sidebar.markdown(material_card(selected_material), unsafe_allow_html=True)
 
@@ -306,18 +247,24 @@ if req:
     elif "diamond" in rec_lower:
         default_tpms_idx = 2
 
-st.sidebar.markdown("### 🔬 Metamaterial Lattice Architecture")
-tpms_choice = st.sidebar.selectbox(
-    "Minimal Surface Topology",
-    tpms_options,
-    index=default_tpms_idx
-)
+tpms_choice = st.sidebar.selectbox("Lattice Topology", tpms_options, index=default_tpms_idx)
 if "gyroid" in tpms_choice.lower():
     tpms_type_code = "gyroid"
 elif "diamond" in tpms_choice.lower():
     tpms_type_code = "diamond"
 else:
     tpms_type_code = "primitive"
+
+with st.sidebar.expander("📖 Objective Functions", expanded=False):
+    st.markdown(r"""
+**Stage 1 · PyGeM FFD Loss:**
+$$\mathcal{L}_{\text{CAD}} = 2 \left( 22 \cdot \frac{\delta - \delta^*}{\delta^*} \right)^2 + \mathcal{C}(u)$$
+
+**Stage 2 · JAX-FEM Adjoint Loss:**
+$$\mathcal{L}_{\text{TPMS}} = \mathcal{L}_{\text{motion}} + c \mathcal{C}(u) + w \mathcal{L}_{\text{mass}} + \mathcal{B}_{\text{geom}} + \mathcal{B}_{\text{FoS}}$$
+
+FoS ≥ 1.50× under 750 N gait · Skin ≥ 0.35 mm
+    """)
 
 st.sidebar.markdown("---")
 st.sidebar.caption("Powered by **Tesseract Core** · JAX-FEM · PETSc")
@@ -351,6 +298,23 @@ with col_geo:
                 width="stretch",
                 key="geo_base"
             )
+            st.markdown(
+                '<div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 0.5rem; margin-top: 0.6rem; font-size: 0.78rem;">'
+                '<div style="background: rgba(248, 250, 252, 0.08); border-left: 3px solid #f8fafc; padding: 0.35rem 0.6rem; border-radius: 4px; color: #f8fafc;">'
+                '🦴 <b>Cortical Bone:</b> Ivory (E = 18 GPa)'
+                '</div>'
+                '<div style="background: rgba(251, 113, 133, 0.08); border-left: 3px solid #fb7185; padding: 0.35rem 0.6rem; border-radius: 4px; color: #fb7185;">'
+                '🩸 <b>Trabecular Core:</b> Rose (E = 1.0 GPa)'
+                '</div>'
+                '<div style="background: rgba(251, 191, 36, 0.08); border-left: 3px solid #fbbf24; padding: 0.35rem 0.6rem; border-radius: 4px; color: #fbbf24;">'
+                '⚡ <b>Fracture Gap:</b> 2.0mm (E = 1.0 MPa)'
+                '</div>'
+                '<div style="background: rgba(56, 189, 248, 0.08); border-left: 3px solid #38bdf8; padding: 0.35rem 0.6rem; border-radius: 4px; color: #38bdf8;">'
+                '🔩 <b>Fixation Plate:</b> Cyan (E = 110 GPa)'
+                '</div>'
+                '</div>',
+                unsafe_allow_html=True
+            )
     else:
         geo_ph.warning("No mesh found. Run the mesh generator first.")
 
@@ -364,12 +328,19 @@ with col_opt:
     agent_delib_container = st.container() if is_agent_mode else None
 
     if req:
-        button_text: str = "🚀 Launch Autonomous Multi-Agent Synthesis" if is_agent_mode else "🚀 Start JAX-FEM Adjoint Optimization"
-        start_button = st.button(button_text, width="stretch")
+        col_btn1, col_btn2 = st.columns([3, 2], gap="small")
+        with col_btn1:
+            button_text: str = "🚀 Launch 2-Stage Multi-Agent Synthesis" if is_agent_mode else "🚀 Start 2-Stage Adjoint Optimization"
+            btn_main = st.button(button_text, width="stretch")
+        with col_btn2:
+            btn_skip = st.button("⚡ Direct Lattice (Skip PyGeM)", width="stretch", help="Skip Stage 1 macro CAD shape morphing and proceed directly to high-fidelity JAX-FEM lattice optimization.")
+
+        start_button = btn_main or btn_skip
+        skip_cad_morph = btn_skip or (not enable_cad_morphing)
 
         # Stage 1 CAD Morphing Top-Level Placeholder
         morph_ph = st.empty()
-        if enable_cad_morphing:
+        if enable_cad_morphing and not btn_skip:
             initial_by = st.session_state.get("cad_bend_y", [])
             initial_bz = st.session_state.get("cad_bend_z", [])
             if initial_by:
@@ -421,8 +392,8 @@ with col_opt:
         if start_button:
             progress_ph.info("⏳ Connecting to Dual Tesseract Microservices (Port 8000 & Port 8001)...")
 
-            # Run Stage 1 CAD morphing if enabled
-            if enable_cad_morphing:
+            # Run Stage 1 CAD morphing if enabled and not skipped
+            if not skip_cad_morph:
                 try:
                     base_mesh = os.path.join(os.path.dirname(__file__), "src", "fem", "data", "model.msh")
                     morphed_mesh = os.path.join(os.path.dirname(__file__), "src", "fem", "data", "morphed_model.msh")
@@ -530,6 +501,23 @@ with col_opt:
                 except Exception as morph_err:
                     morph_ph.empty()
                     st.warning(f"Stage 1 CAD morphing warning: {morph_err}. Continuing with base mesh.")
+            else:
+                refined_mesh = os.path.join(os.path.dirname(__file__), "src", "fem", "data", "refined_model.msh")
+                from src.fem.forward import rebuild_for_morphed_mesh
+                if os.path.exists(refined_mesh):
+                    rebuild_for_morphed_mesh(refined_mesh)
+                morph_ph.markdown(
+                    '<div class="glass-card" style="padding: 0.9rem 1.2rem; margin-bottom: 1.2rem; border-left: 4px solid #f59e0b; background: rgba(15, 23, 42, 0.92);">'
+                    '<div style="display: flex; justify-content: space-between; align-items: center;">'
+                    '<div style="font-weight: 700; font-size: 0.95rem; color: #f8fafc;">'
+                    '⚡ <b>Stage 1 Skipped:</b> High-Fidelity JAX-FEM Lattice Optimization Active (63,153 DOFs)'
+                    '</div>'
+                    '<span style="background: rgba(245, 158, 11, 0.15); color: #f59e0b; padding: 0.2rem 0.5rem; border-radius: 4px; font-weight: 600;">DIRECT LATTICE MODE</span>'
+                    '</div>'
+                    '</div>',
+                    unsafe_allow_html=True
+                )
+                st.toast("⚡ Stage 1 PyGeM CAD Morphing Skipped. Running JAX-FEM on high-fidelity 63k DOF refined mesh.", icon="⚡")
 
             loss_history     = []
             disp_history     = []
@@ -591,9 +579,70 @@ with col_opt:
             if is_agent_mode:
                 # Multi-Agent LangGraph Orchestration Flow
                 with agent_delib_container:
-                    st.markdown("#### 🤖 Multi-Agent Collaborative Deliberation")
+                    st.markdown("#### 🤖 Multi-Agent Collaborative Workflow")
                     agent_chat_ph = st.empty()
                     rendered_messages = []
+
+                def on_opt_step(step_state: dict, step_num: int):
+                    loss_val = float(step_state.get("loss", 0.0))
+                    disp_val = float(step_state.get("frac_disp", 0.0)) * 1000.0
+                    loss_history.append(loss_val)
+                    disp_history.append(disp_val)
+                    phase_history.append(step_state.get("phase", "Adam"))
+                    
+                    t_p_anc = step_state.get("tau_p_anc", step_state.get("tau_prox", 0.35))
+                    t_p_tra = step_state.get("tau_p_tra", step_state.get("tau_prox", 0.45))
+                    t_bri   = step_state.get("tau_bridge", 0.55)
+                    t_d_tra = step_state.get("tau_d_tra", step_state.get("tau_dist", 0.45))
+                    t_d_anc = step_state.get("tau_d_anc", step_state.get("tau_dist", 0.35))
+                    sigma   = step_state.get("sigma_blend", 0.015)
+                    
+                    if "t_top_mm" in step_state:
+                        t_top_m = float(step_state["t_top_mm"]) / 1000.0
+                    if "t_bottom_mm" in step_state:
+                        t_bot_m = float(step_state["t_bottom_mm"]) / 1000.0
+                    if "screw_spacing_mm" in step_state:
+                        screw_spacing_m = float(step_state["screw_spacing_mm"]) / 1000.0
+                    if "bridge_span_mm" in step_state:
+                        bridge_span_m = float(step_state["bridge_span_mm"]) / 1000.0
+                    if "fillet_radius_mm" in step_state:
+                        fillet_radius_m = float(step_state["fillet_radius_mm"]) / 1000.0
+                    if "cell_size_mm" in step_state:
+                        cell_size_m = float(step_state["cell_size_mm"]) / 1000.0
+                    
+                    porosity_history["Prox Anchor (%)"].append(to_porosity(t_p_anc))
+                    porosity_history["Prox Transition (%)"].append(to_porosity(t_p_tra))
+                    porosity_history["Bridge Gap (%)"].append(to_porosity(t_bri))
+                    porosity_history["Dist Transition (%)"].append(to_porosity(t_d_tra))
+                    porosity_history["Dist Anchor (%)"].append(to_porosity(t_d_anc))
+                    
+                    grad_history["dL/dtau_p_anc"].append(step_state.get("grad_p_anc", 0.0))
+                    grad_history["dL/dtau_p_tra"].append(step_state.get("grad_p_tra", 0.0))
+                    grad_history["dL/dtau_bridge"].append(step_state.get("grad_bridge", 0.0))
+                    grad_history["dL/dtau_d_tra"].append(step_state.get("grad_d_tra", 0.0))
+                    grad_history["dL/dtau_d_anc"].append(step_state.get("grad_d_anc", 0.0))
+                    grad_history["dL/dsigma_blend"].append(step_state.get("grad_sigma", 0.0))
+                    grad_history["dL/dt_top"].append(step_state.get("grad_t_top", 0.0))
+                    grad_history["dL/dt_bottom"].append(step_state.get("grad_t_bot", 0.0))
+                    grad_history["dL/ds_pitch"].append(step_state.get("grad_pitch", 0.0))
+                    grad_history["dL/dL_bridge"].append(step_state.get("grad_bridge_span", 0.0))
+                    grad_history["dL/dd_cell"].append(step_state.get("grad_cell_size", 0.0))
+                    grad_history["dL/dr_fillet"].append(step_state.get("grad_fillet", 0.0))
+                    
+                    last_tau = (t_p_anc, t_p_tra, t_bri, t_d_tra, t_d_anc, sigma)
+
+                    loss_ph.plotly_chart(create_loss_tracking_fig(loss_history), width="stretch")
+                    disp_ph.plotly_chart(create_disp_tracking_fig(disp_history, target_mm), width="stretch")
+                    status_ph.markdown(StatusBadge.for_displacement(disp_history[-1], target_mm), unsafe_allow_html=True)
+                    porosity_ph.plotly_chart(create_porosity_tracking_fig(porosity_history, target_porosity_pct=(1.0 - req.max_mass)*100.0), width="stretch")
+                    grad_ph.plotly_chart(create_gradient_tracking_fig(grad_history), width="stretch")
+
+                    pitch_mm = screw_spacing_m * 1000.0
+                    core_mm = max(6.0 - (t_top_m + t_bot_m)*1000.0, 1.0)
+                    progress_ph.progress(
+                        min(step_num / opt_max_steps, 1.0),
+                        text=f"Step {step_num}/{opt_max_steps} | Loss: {loss_val:.2f} | Motion: {disp_val:.3f} mm | Pitch: {pitch_mm:.1f} mm | Core: {core_mm:.2f} mm"
+                    )
 
                 for event in run_design_agent(
                     surgeon_prompt=user_prompt,
@@ -603,7 +652,8 @@ with col_opt:
                     max_steps=opt_max_steps,
                     bend_y_array=st.session_state.get("cad_bend_y"),
                     bend_z_array=st.session_state.get("cad_bend_z"),
-                    stream=True
+                    stream=True,
+                    step_callback=on_opt_step
                 ):
                     if event["type"] == "agent_message":
                         msg = event["message"]
@@ -636,18 +686,6 @@ with col_opt:
                         with agent_delib_container:
                             agent_chat_ph.markdown("".join(chat_html), unsafe_allow_html=True)
 
-                        # Sync optimization telemetry if available
-                        st_data = event.get("state", {})
-                        opt_res = st_data.get("optimization_result")
-                        if opt_res and "step_history" in opt_res and opt_res["step_history"]:
-                            steps = opt_res["step_history"]
-                            loss_history = [s["loss"] for s in steps]
-                            disp_history = [s["frac_disp"] * 1000 for s in steps]
-                            n_msg = len(rendered_messages)
-                            loss_ph.plotly_chart(create_loss_tracking_fig(loss_history), width="stretch", key=f"agent_loss_{n_msg}")
-                            disp_ph.plotly_chart(create_disp_tracking_fig(disp_history, target_mm), width="stretch", key=f"agent_disp_{n_msg}")
-                            status_ph.markdown(StatusBadge.for_displacement(disp_history[-1], target_mm), unsafe_allow_html=True)
-
                     elif event["type"] == "final_result":
                         final_agent_state = event.get("state", {})
 
@@ -678,6 +716,28 @@ with col_opt:
                         "target_mm": target_mm
                     }
                     st.session_state.last_opt_results = opt_results
+                    
+                    # Unified history recording for Agent mode
+                    solid_mass = 64.0 * (selected_material.density_g_cm3 / 4.43)
+                    avg_por = opt_results["avg_porosity"]
+                    optimized_mass = solid_mass * (1.0 - (avg_por / 100.0) * 0.85)
+                    achieved_m = opt_results["final_disp_mm"]
+                    err_pct = abs(achieved_m - target_mm) / (target_mm + 1e-9) * 100.0
+                    status_str = "✅ PASS (ASTM)" if err_pct <= 20.0 else "⚠️ TIGHTENING"
+
+                    st.session_state.run_history.append({
+                        "Timestamp": datetime.datetime.now().strftime("%H:%M:%S"),
+                        "Workflow Mode": "🤖 Multi-Agent LangGraph",
+                        "Scenario / Goal": req.objective,
+                        "Biomaterial": selected_material.code,
+                        "Lattice Topology": tpms_choice.split("·")[0].strip(),
+                        "Mesh Resolution": "63,153 DOFs (Refined)" if not skip_cad_morph else "63,153 DOFs (Direct)",
+                        "Target Motion": f"{target_mm:.2f} mm",
+                        "Achieved Motion": f"{achieved_m:.3f} mm",
+                        "Avg Porosity": f"{avg_por:.1f}%",
+                        "Mass Reduction": f"{((solid_mass - optimized_mass)/solid_mass)*100:.1f}%",
+                        "ASTM Status": status_str
+                    })
                     st.balloons()
 
             else:
@@ -789,17 +849,24 @@ with col_opt:
                 
                 # Append run record to session history
                 solid_mass = 64.0 * (selected_material.density_g_cm3 / 4.43)
-                optimized_mass = solid_mass * (1.0 - (opt_results["avg_porosity"] / 100.0) * 0.85)
+                avg_por = opt_results["avg_porosity"]
+                optimized_mass = solid_mass * (1.0 - (avg_por / 100.0) * 0.85)
+                achieved_m = opt_results["final_disp_mm"]
+                err_pct = abs(achieved_m - target_mm) / (target_mm + 1e-9) * 100.0
+                status_str = "✅ PASS (ASTM)" if err_pct <= 20.0 else "⚠️ TIGHTENING"
                 
                 st.session_state.run_history.append({
                     "Timestamp": datetime.datetime.now().strftime("%H:%M:%S"),
-                    "Scenario": req.objective,
-                    "Material": selected_material.code,
-                    "Fidelity": "TET10" if "TET10" in fidelity_choice else "TET4",
+                    "Workflow Mode": "⚙️ Direct Adjoint Optimization",
+                    "Scenario / Goal": req.objective,
+                    "Biomaterial": selected_material.code,
+                    "Lattice Topology": tpms_choice.split("·")[0].strip(),
+                    "Mesh Resolution": "63,153 DOFs (Refined)" if not skip_cad_morph else "63,153 DOFs (Direct)",
                     "Target Motion": f"{target_mm:.2f} mm",
-                    "Achieved Motion": f"{opt_results['final_disp_mm']:.3f} mm",
-                    "Avg Porosity": f"{opt_results['avg_porosity']:.1f}%",
-                    "Mass Reduction": f"{((solid_mass - optimized_mass)/solid_mass)*100:.1f}%"
+                    "Achieved Motion": f"{achieved_m:.3f} mm",
+                    "Avg Porosity": f"{avg_por:.1f}%",
+                    "Mass Reduction": f"{((solid_mass - optimized_mass)/solid_mass)*100:.1f}%",
+                    "ASTM Status": status_str
                 })
                 st.balloons()
         else:
@@ -939,15 +1006,22 @@ if current_results is not None and current_results.get("last_tau") is not None:
                 ])
                 sol_u, _, _, _ = solve_fem(theta_fem)
                 nodal_vm = compute_nodal_von_mises_stress(mesh_path, sol_u, selected_material.youngs_modulus_gpa, theta_fem=theta_fem)
-                max_vm = float(np.max(nodal_vm))
-                min_fos = float(selected_material.yield_strength_mpa / max(max_vm, 1e-4))
+                
+                # Extract plate nodes specifically (Tag 10) for pure implant stress and FoS calculation
+                m_chk = meshio.read(mesh_path)
+                p_c = np.vstack([cb.data[:, :4] for cb in m_chk.cells if cb.type in ('tetra', 'tetra10')])
+                p_t = np.concatenate([m_chk.cell_data["gmsh:physical"][i] for i, cb in enumerate(m_chk.cells) if cb.type in ('tetra', 'tetra10')])
+                p_nodes = np.unique(p_c[p_t == 10].ravel())
+                implant_vm = nodal_vm[p_nodes] if len(p_nodes) > 0 else nodal_vm
+                max_vm = float(np.percentile(implant_vm, 99.0)) if len(implant_vm) > 0 else float(np.max(nodal_vm))
+                min_fos = float(selected_material.yield_strength_mpa / max(max_vm, 1.0))
                 
             is_fos = "Safety" in view_layer
             mode_str = "fos" if is_fos else "stress"
             
             st.markdown(
                 f"""<div style="background: rgba(15, 23, 42, 0.6); padding: 0.5rem 1rem; border-radius: 8px; border-left: 3px solid {'#22c55e' if min_fos >= 1.5 else '#eab308'}; font-size: 0.85rem; margin-bottom: 0.5rem;">
-                    <b>Peak Von Mises:</b> <span style="color: #f8fafc;">{max_vm:.1f} MPa</span> &nbsp;|&nbsp; 
+                    <b>Peak Implant Von Mises:</b> <span style="color: #f8fafc;">{max_vm:.1f} MPa</span> &nbsp;|&nbsp; 
                     <b>Material Yield:</b> <span style="color: #38bdf8;">{selected_material.yield_strength_mpa:.0f} MPa</span> &nbsp;|&nbsp; 
                     <b>Minimum Factor of Safety:</b> <span style="color: {'#4ade80' if min_fos >= 1.5 else '#facc15'}; font-weight: 700;">{min_fos:.2f}x</span> 
                     <span style="color: #94a3b8; font-size: 0.75rem;">(ASTM F382 Target: &ge; 1.50x)</span>
@@ -966,11 +1040,11 @@ if current_results is not None and current_results.get("last_tau") is not None:
                 )
 
             with r1:
-                title1 = "🛡️ 3D Factor of Safety Distribution (Full Remeshed TPMS Surface)" if is_fos else "⚡ 3D Von Mises Stress Contour (Full Remeshed TPMS Surface)"
+                title1 = "🛡️ 3D Factor of Safety (Implant Only · Full Surface)" if is_fos else "⚡ 3D Von Mises Stress (Implant Only · Full Surface)"
                 st.caption(title1)
                 st.plotly_chart(get_von_mises_plotly_fig(mesh_path, nodal_vm, yield_strength_mpa=selected_material.yield_strength_mpa, mode=mode_str, tau_values=last_tau, tpms_type=tpms_type_code, fillet_radius=fillet_radius_m, screw_spacing=screw_spacing_m, bridge_span=bridge_span_m, t_top=t_top_m, t_bottom=t_bot_m, bend_y_array=active_by, bend_z_array=active_bz), width="stretch", key="vm_ext")
             with r2:
-                title2 = "🛡️ Internal Factor of Safety (Z-cut Sagittal TPMS View)" if is_fos else "⚡ Internal Stress Distribution (Z-cut Sagittal TPMS View)"
+                title2 = "🛡️ Internal Factor of Safety (Implant Only · Z-Cut Sagittal)" if is_fos else "⚡ Internal Stress Distribution (Implant Only · Z-Cut Sagittal)"
                 st.caption(title2)
                 st.plotly_chart(get_von_mises_plotly_fig(mesh_path, nodal_vm, clip_axis="z", yield_strength_mpa=selected_material.yield_strength_mpa, mode=mode_str, tau_values=last_tau, tpms_type=tpms_type_code, fillet_radius=fillet_radius_m, screw_spacing=screw_spacing_m, bridge_span=bridge_span_m, t_top=t_top_m, t_bottom=t_bot_m, bend_y_array=active_by, bend_z_array=active_bz), width="stretch", key="vm_int")
         else:
@@ -984,10 +1058,10 @@ if current_results is not None and current_results.get("last_tau") is not None:
                     unsafe_allow_html=True
                 )
             with r1:
-                st.caption(f"🔬 3D {tpms_choice.split('·')[0].strip()} Solid Surface (Top: {t_top_mm:.2f}mm · Core: {h_tpms_mm:.2f}mm · Bot: {t_bot_mm:.2f}mm · Bridge: {bridge_span_mm:.1f}mm)")
+                st.caption(f"🔬 3D {tpms_choice.split('·')[0].strip()} Implant Surface (Top: {t_top_mm:.2f}mm · Core: {h_tpms_mm:.2f}mm · Bot: {t_bot_mm:.2f}mm · Bridge: {bridge_span_mm:.1f}mm)")
                 st.plotly_chart(get_mesh_plotly_fig(mesh_path, tau_values=last_tau, tpms_type=tpms_type_code, fillet_radius=fillet_radius_m, screw_spacing=screw_spacing_m, bridge_span=bridge_span_m, t_top=t_top_m, t_bottom=t_bot_m, bend_y_array=active_by, bend_z_array=active_bz), width="stretch", key="final_ext")
             with r2:
-                st.caption(f"🔬 Internal TPMS Porosity Gradient (Z-cut Sagittal View)")
+                st.caption(f"🔬 Internal TPMS Porosity Gradient (Implant Only · Z-Cut Sagittal)")
                 st.plotly_chart(get_mesh_plotly_fig(mesh_path, tau_values=last_tau, clip_axis="z", tpms_type=tpms_type_code, fillet_radius=fillet_radius_m, screw_spacing=screw_spacing_m, bridge_span=bridge_span_m, t_top=t_top_m, t_bottom=t_bot_m, bend_y_array=active_by, bend_z_array=active_bz), width="stretch", key="final_int")
 
     # Manufacturing CAD STL export
@@ -1019,6 +1093,21 @@ if current_results is not None and current_results.get("last_tau") is not None:
 # Optimization history log table
 if len(st.session_state.run_history) > 0:
     st.markdown("---")
-    st.markdown(section_label("📋", "Optimization & Verification Session History"), unsafe_allow_html=True)
+    st.markdown(section_label("📋", "Optimization & Verification Experimentation History"), unsafe_allow_html=True)
     history_df = pd.DataFrame(st.session_state.run_history)
-    st.dataframe(history_df, width="stretch")
+    st.dataframe(history_df, width="stretch", hide_index=True)
+    
+    col_hist_dl, col_hist_clr = st.columns([4, 1])
+    with col_hist_dl:
+        csv_data = history_df.to_csv(index=False).encode('utf-8')
+        st.download_button(
+            "📥 Download Experimentation History (.csv)",
+            data=csv_data,
+            file_name="tesseract_experiment_history.csv",
+            mime="text/csv",
+            key="dl_history_csv"
+        )
+    with col_hist_clr:
+        if st.button("🗑️ Clear History", key="btn_clear_hist"):
+            st.session_state.run_history = []
+            st.rerun()

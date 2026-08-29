@@ -27,11 +27,13 @@ ADJOINT_SOLVER_OPTIONS = {
 
 _data_dir: str = os.path.join(os.path.dirname(__file__), "data")
 _morphed_path: str = os.path.join(_data_dir, "morphed_model.msh")
+_refined_path: str = os.path.join(_data_dir, "refined_model.msh")
 _base_path: str = os.path.join(_data_dir, "model.msh")
 
 # Prefer morphed mesh if it exists (Stage 1 CAD morphing was run),
-# otherwise fall back to the base solid mesh.
-mesh_path: str = _morphed_path if os.path.exists(_morphed_path) else _base_path
+# otherwise use the refined mesh (63k DOFs) if available, or fall back to the base mesh.
+_default_base: str = _refined_path if os.path.exists(_refined_path) else _base_path
+mesh_path: str = _morphed_path if os.path.exists(_morphed_path) else _default_base
 
 if os.path.exists(mesh_path):
     problem: Optional[BiomechanicsProblem] = build_problem(mesh_path)

@@ -71,7 +71,7 @@ def create_message(
     return msg_dict
 
 
-class DesignState(TypedDict):
+class DesignState(TypedDict, total=False):
     """Shared typed state that flows through every node in the agent graph."""
     surgeon_prompt: str
     clinical_profile: Optional[Dict[str, Any]]
@@ -88,3 +88,4 @@ class DesignState(TypedDict):
     bend_y_array: Optional[List[float]]
     bend_z_array: Optional[List[float]]
     final_design: Optional[Dict[str, Any]]
+    step_callback: Optional[Any]

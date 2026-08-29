@@ -89,9 +89,9 @@ def _parse_with_backend_llm(prompt: str, api_key: str) -> Optional[DesignRequest
     }
     
     candidate_models = [
-        "llama-3.3-70b-versatile",
-        "llama-3.1-8b-instant",
-        "mixtral-8x7b-32768"
+        "qwen/qwen3.8-27b",
+        "qwen/qwen3.6-27b",
+        "openai/gpt-oss-120b"
     ]
     
     for model in candidate_models:
@@ -163,6 +163,80 @@ def _parse_with_backend_llm(prompt: str, api_key: str) -> Optional[DesignRequest
         except Exception as e:
             print(f"[Backend LLM Agent Exception on {model}]: {e}")
             
+    return None
+
+
+def _parse_with_gemini_llm(prompt: str, api_key: str) -> Optional[DesignRequest]:
+    clean_key = api_key.strip().strip('"').strip("'")
+    try:
+        from google import genai
+        from google.genai import types
+        
+        client = genai.Client(api_key=clean_key)
+        config = types.GenerateContentConfig(
+            temperature=0.1,
+            response_mime_type="application/json",
+            system_instruction=SYSTEM_PROMPT
+        )
+        
+        for model in ["gemini-3.6-flash", "gemini-3.5-flash"]:
+            try:
+                response = client.models.generate_content(
+                    model=model,
+                    contents=f"Analyze this clinical request and extract optimization parameters: '{prompt}'",
+                    config=config
+                )
+                if response.text:
+                    parsed_json = json.loads(response.text)
+                    
+                    mat = parsed_json.get("recommended_material", "Ti-6Al-4V (Grade 5 Titanium)")
+                    if "steel" in mat.lower() or "316" in mat.lower() or "cheap" in prompt.lower() or "cost" in prompt.lower() or "affordable" in prompt.lower():
+                        mat = "316L Stainless Steel"
+                    else:
+                        mat = "Ti-6Al-4V (Grade 5 Titanium)"
+                        
+                    tpms_raw = parsed_json.get("recommended_tpms", "Schwarz Primitive (P)")
+                    if "gyroid" in tpms_raw.lower() or "shear" in prompt.lower() or "oblique" in prompt.lower():
+                        tpms = "Schoen Gyroid (G)"
+                    elif "diamond" in tpms_raw.lower() or "spiral" in prompt.lower() or "torsion" in prompt.lower() or "athlete" in prompt.lower():
+                        tpms = "Schwarz Diamond (D)"
+                    else:
+                        tpms = "Schwarz Primitive (P)"
+                        
+                    f_rad = float(parsed_json.get("fillet_radius_mm", 1.2))
+                    s_spac = float(parsed_json.get("screw_spacing_mm", 14.5))
+                    f_rad = min(max(f_rad, 0.4), 2.5)
+                    s_spac = min(max(s_spac, 10.0), 16.0)
+                    
+                    raw_disp = float(parsed_json.get("target_fracture_displacement", 0.00020))
+                    if raw_disp > 1.0:
+                        target_disp = raw_disp * 1e-6
+                    elif raw_disp > 0.001:
+                        target_disp = raw_disp * 1e-3
+                    else:
+                        target_disp = raw_disp
+                    target_disp = min(max(target_disp, 0.00008), 0.00040)
+                    
+                    raw_mass = float(parsed_json.get("max_mass", 0.60))
+                    if raw_mass > 1.0:
+                        raw_mass /= 100.0
+                    max_mass = min(max(raw_mass, 0.45), 0.85)
+                    
+                    return DesignRequest(
+                        objective=parsed_json.get("objective", "Callus Stimulation & Mass Minimization"),
+                        target_fracture_displacement=target_disp,
+                        max_mass=max_mass,
+                        recommended_material=mat,
+                        recommended_tpms=tpms,
+                        fillet_radius_mm=f_rad,
+                        screw_spacing_mm=s_spac,
+                        clinical_rationale=f"✨ [Google Gemini / {model}]: " + parsed_json.get("clinical_rationale", "")
+                    )
+            except Exception:
+                continue
+    except Exception as e:
+        print(f"[Gemini Agent Exception]: {e}")
+        
     return None
 
 
@@ -284,13 +358,18 @@ def _parse_with_local_nlp(user_prompt: str) -> DesignRequest:
 
 def parse_design_request(user_prompt: str) -> DesignRequest:
     """
-    Parses a clinical user prompt using Groq LPU inference, with automatic fallback to local rule-based NLP.
+    Parses a clinical user prompt with robust multi-tiered fallback:
+    1. Groq LPU (Ultra-fast structured output with Llama 3.3 70B)
+    2. Google Gemini (Advanced multi-modal reasoning with Gemini 2.5 Flash)
+    3. Local Biomechanical NLP (Deterministic regex parameter extraction)
     """
     from src.utils.logger import log_user_prompt_and_llm_response
     
     # Reload from .env if needed
     groq_key = os.getenv("GROQ_API_KEY")
-    if not groq_key:
+    gemini_key = os.getenv("GEMINI_API_KEY") or os.getenv("GOOGLE_API_KEY")
+    
+    if not groq_key or not gemini_key:
         env_path = os.path.abspath(os.path.join(os.path.dirname(__file__), "../../.env"))
         if os.path.exists(env_path):
             with open(env_path, "r") as f:
@@ -298,16 +377,27 @@ def parse_design_request(user_prompt: str) -> DesignRequest:
                     if "GROQ_API_KEY" in line and "=" in line:
                         groq_key = line.split("=", 1)[1].strip().strip('"').strip("'")
                         os.environ["GROQ_API_KEY"] = groq_key
-                        break
-                        
-    if groq_key and len(groq_key.strip()) > 5:
+                    elif ("GEMINI_API_KEY" in line or "GOOGLE_API_KEY" in line) and "=" in line:
+                        gemini_key = line.split("=", 1)[1].strip().strip('"').strip("'")
+                        os.environ["GEMINI_API_KEY"] = gemini_key
+
+    # 1. First attempt: Groq LPU
+    if groq_key and len(groq_key.strip()) > 8 and not groq_key.startswith("YOUR_"):
         llm_res = _parse_with_backend_llm(user_prompt, groq_key)
         if llm_res is not None:
             log_user_prompt_and_llm_response(user_prompt, llm_res, engine="Groq LPU (Llama 3.3 70B)")
             return llm_res
-            
+
+    # 2. Second attempt: Google Gemini
+    if gemini_key and len(gemini_key.strip()) > 8 and not gemini_key.startswith("YOUR_"):
+        gem_res = _parse_with_gemini_llm(user_prompt, gemini_key)
+        if gem_res is not None:
+            log_user_prompt_and_llm_response(user_prompt, gem_res, engine="Google Gemini")
+            return gem_res
+
+    # 3. Third attempt: Local Biomechanical Regex NLP
     local_res = _parse_with_local_nlp(user_prompt)
-    log_user_prompt_and_llm_response(user_prompt, local_res, engine="Local Biomechanical NLP")
+    log_user_prompt_and_llm_response(user_prompt, local_res, engine="Local Biomechanical Regex NLP")
     return local_res
 
 

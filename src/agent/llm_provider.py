@@ -44,7 +44,7 @@ class GeminiProvider(LLMProvider):
             raise RuntimeError("google.genai package is required for GeminiProvider")
 
         self.client = genai.Client(api_key=api_key)
-        self.model: str = model or os.environ.get("GEMINI_MODEL", "gemini-3.5-flash")
+        self.model: str = model or os.environ.get("GEMINI_MODEL", "gemini-3.6-flash")
         self.types = types
 
     def generate(
@@ -68,7 +68,7 @@ class GeminiProvider(LLMProvider):
         config = self.types.GenerateContentConfig(**config_kwargs)
 
         models_to_try: List[str] = [self.model]
-        for fallback_m in ["gemini-2.5-flash", "gemini-2.0-flash", "gemini-1.5-flash", "gemini-1.5-pro"]:
+        for fallback_m in ["gemini-3.6-flash", "gemini-3.5-flash"]:
             if fallback_m not in models_to_try:
                 models_to_try.append(fallback_m)
 
@@ -97,7 +97,7 @@ class GroqProvider(LLMProvider):
         if httpx is None:
             raise RuntimeError("httpx package is required for GroqProvider")
         self.api_key: str = api_key
-        self.model: str = model or os.environ.get("GROQ_MODEL", "llama-3.3-70b-versatile")
+        self.model: str = model or os.environ.get("GROQ_MODEL", "qwen/qwen3.8-27b")
         self.url: str = "https://api.groq.com/openai/v1/chat/completions"
 
     def generate(
@@ -174,39 +174,35 @@ class OllamaProvider(LLMProvider):
 
 
 def get_provider(role: str = "default") -> LLMProvider:
-    """Select the primary LLM provider based on available API keys."""
+    """Select the primary LLM provider in fallback order: Groq -> Gemini -> Ollama."""
+    groq_key: str = (os.environ.get("GROQ_API_KEY") or "").strip().strip('"').strip("'")
     gemini_key: str = (
         os.environ.get("GEMINI_API_KEY") or os.environ.get("GOOGLE_API_KEY") or ""
     ).strip().strip('"').strip("'")
-    groq_key: str = (os.environ.get("GROQ_API_KEY") or "").strip().strip('"').strip("'")
 
     providers: List[LLMProvider] = []
 
-    def try_add_gemini() -> None:
-        if gemini_key and len(gemini_key) > 10 and not gemini_key.startswith("YOUR_"):
+    def try_add_groq() -> None:
+        if groq_key and len(groq_key) > 8 and not groq_key.startswith("YOUR_"):
             try:
-                providers.append(GeminiProvider(api_key=gemini_key))
+                providers.append(GroqProvider(api_key=groq_key))
             except Exception:
                 pass
 
-    def try_add_groq() -> None:
-        if groq_key and len(groq_key) > 10 and not groq_key.startswith("YOUR_"):
+    def try_add_gemini() -> None:
+        if gemini_key and len(gemini_key) > 8 and not gemini_key.startswith("YOUR_"):
             try:
-                providers.append(GroqProvider(api_key=groq_key))
+                providers.append(GeminiProvider(api_key=gemini_key))
             except Exception:
                 pass
 
     def try_add_ollama() -> None:
         providers.append(OllamaProvider())
 
-    if role == "materials_advisor":
-        try_add_groq()
-        try_add_gemini()
-        try_add_ollama()
-    else:
-        try_add_gemini()
-        try_add_groq()
-        try_add_ollama()
+    # Strict fallback priority: Groq LPU -> Google Gemini -> Local Ollama
+    try_add_groq()
+    try_add_gemini()
+    try_add_ollama()
 
     if not providers:
         return OllamaProvider()

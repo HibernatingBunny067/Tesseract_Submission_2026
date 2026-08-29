@@ -130,4 +130,14 @@ def run_cad_shape_optimization(
             "all_bend_y": theta[0:n_interior].tolist(),
             "all_bend_z": theta[n_interior:2*n_interior].tolist()
         }
+
+    # Final remeshing step: apply optimal FFD deformation field to the refined 63k DOF mesh
+    refined_base_path = os.path.join(os.path.dirname(base_mesh_path), "refined_model.msh")
+    target_base = refined_base_path if os.path.exists(refined_base_path) else base_mesh_path
+    apply_pygem_ffd(
+        target_base,
+        morphed_mesh_path,
+        np.array(theta[0:n_interior]),
+        np.array(theta[n_interior:2*n_interior])
+    )
         
