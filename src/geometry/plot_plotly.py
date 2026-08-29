@@ -163,7 +163,9 @@ def get_mesh_plotly_fig(
     bridge_span: float = 0.030,
     t_top: float = 0.0002,
     t_bottom: float = 0.0002,
-    skin_thickness: Optional[float] = None
+    skin_thickness: Optional[float] = None,
+    bend_y_array: Optional[np.ndarray] = None,
+    bend_z_array: Optional[np.ndarray] = None,
 ) -> go.Figure:
     if skin_thickness is not None:
         t_top = skin_thickness
@@ -242,7 +244,13 @@ def get_mesh_plotly_fig(
             verts[:, 0] += x_min
             verts[:, 1] += y_min
             verts[:, 2] += z_min
-            
+
+            # Apply FFD warp if morphing parameters are provided
+            if bend_y_array is not None and bend_z_array is not None:
+                from src.geometry.morph import build_ffd_warper
+                warper = build_ffd_warper(bend_y_array, bend_z_array)
+                verts = warper(verts)
+
             tpms_colors = []
             t_perim = min(t_top, t_bottom)
             for vx, vy, vz in zip(verts[:, 0], verts[:, 1], verts[:, 2]):
@@ -341,7 +349,9 @@ def get_von_mises_plotly_fig(
     bridge_span: float = 0.030,
     t_top: float = 0.0002,
     t_bottom: float = 0.0002,
-    skin_thickness: Optional[float] = None
+    skin_thickness: Optional[float] = None,
+    bend_y_array: Optional[np.ndarray] = None,
+    bend_z_array: Optional[np.ndarray] = None,
 ) -> go.Figure:
     if skin_thickness is not None:
         t_top = skin_thickness
@@ -422,6 +432,12 @@ def get_von_mises_plotly_fig(
             verts[:, 0] += x_min
             verts[:, 1] += y_min
             verts[:, 2] += z_min
+
+            # Apply FFD warp if morphing parameters are provided
+            if bend_y_array is not None and bend_z_array is not None:
+                from src.geometry.morph import build_ffd_warper
+                warper = build_ffd_warper(bend_y_array, bend_z_array)
+                verts = warper(verts)
 
             # Build KDTree on FEA implant plate nodes for spatial stress interpolation
             plate_node_indices = np.unique(cells[cell_tags == 10].ravel())
@@ -575,7 +591,9 @@ def generate_tpms_stl_bytes(
     bridge_span: float = 0.030,
     t_top: float = 0.0002,
     t_bottom: float = 0.0002,
-    skin_thickness: Optional[float] = None
+    skin_thickness: Optional[float] = None,
+    bend_y_array: Optional[np.ndarray] = None,
+    bend_z_array: Optional[np.ndarray] = None,
 ) -> bytes:
     """
     Generates binary STL file bytes of the optimized 3D TPMS implant geometry for direct additive manufacturing.
@@ -624,7 +642,13 @@ def generate_tpms_stl_bytes(
     verts[:, 0] += x_min
     verts[:, 1] += y_min
     verts[:, 2] += z_min
-    
+
+    # Apply FFD warp if morphing parameters are provided
+    if bend_y_array is not None and bend_z_array is not None:
+        from src.geometry.morph import build_ffd_warper
+        warper = build_ffd_warper(bend_y_array, bend_z_array)
+        verts = warper(verts)
+
     # Scale coordinates to physical millimeters for direct slicer import
     verts_mm = (verts * 1000.0).astype(np.float32)
     triangles = verts_mm[faces]

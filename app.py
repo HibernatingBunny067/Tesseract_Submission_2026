@@ -19,11 +19,11 @@ logging.getLogger("jax_fem").setLevel(logging.ERROR)
 logging.getLogger("uvicorn").setLevel(logging.ERROR)
 logging.getLogger("httpx").setLevel(logging.WARNING)
 os.environ["JAX_FEM_LOG_LEVEL"] = "ERROR"
-os.environ["TESSERACT_OUTPUT_PATH"] = "/tmp/tesseract_runs"
-os.environ["MLFLOW_TRACKING_URI"] = "file:///tmp/mlruns"
+import src.fem.petsc_compat
 
 from src.agent.agent import parse_design_request, DesignRequest
 from src.agent.optimize import run_optimization
+from src.agent.graph import run_design_agent
 from src.geometry.plot_plotly import get_mesh_plotly_fig, get_von_mises_plotly_fig, generate_tpms_stl_bytes
 from src.fem.forward import solve_fem
 from src.fem.problem import compute_nodal_von_mises_stress
@@ -108,6 +108,13 @@ from src.agent.agent import parse_design_request
 
 # Clinical preset definitions
 st.sidebar.markdown("### 🤖 Agentic NLP Interface")
+
+workflow_mode: str = st.sidebar.radio(
+    "Architecture Mode",
+    ["🤖 Multi-Agent Orchestrator (LangGraph)", "⚙️ Direct Parametric Mode"],
+    index=0,
+    help="Multi-Agent mode orchestrates 4 specialist agents (Clinical, Materials, Optimization, Validation) with autonomous closed-loop self-correction."
+)
 
 CLINICAL_PRESETS: Dict[str, str] = {
     "Callus Stimulation (Default)": "I need a compliant Titanium plate that allows 0.2mm of micro-motion at the fracture site to stimulate callus formation, while keeping the implant as light as possible.",
@@ -241,6 +248,25 @@ bridge_span_m = bridge_span_mm / 1000.0
 cell_size_m = cell_size_mm / 1000.0
 cell_size_m = cell_size_mm / 1000.0
 
+# Stage 1: Macro CAD Shape Morphing (PyGeM FFD)
+st.sidebar.markdown("### 🔧 Stage 1: Macro CAD Shape Morphing")
+enable_cad_morphing: bool = st.sidebar.checkbox(
+    "Enable FFD Plate Curvature Morphing",
+    value=True,
+    help="Activates Free-Form Deformation (PyGeM) to adapt the plate's global curvature to patient anatomy before micro-lattice optimization."
+)
+cad_morph_steps: int = 0
+if enable_cad_morphing:
+    cad_morph_steps = st.sidebar.slider(
+        "CAD Morphing Steps",
+        min_value=3,
+        max_value=30,
+        value=10,
+        step=1,
+        help="Number of finite-difference Adam steps for FFD control point optimization."
+    )
+    st.sidebar.info("Stage 1 morphs the solid base mesh before Stage 2 TPMS optimization.")
+
 st.sidebar.markdown("### ⚙️ Simulation Fidelity & Iterations")
 fidelity_choice = st.sidebar.radio(
     "FEM Solver Quadrature / Element Refinement",
@@ -297,19 +323,28 @@ st.sidebar.markdown("---")
 st.sidebar.caption("Powered by **Tesseract Core** · JAX-FEM · PETSc")
 
 # Top viewport: Geometry preview (left) and Live optimization telemetry (right)
-mesh_path = os.path.join(os.path.dirname(__file__), "src", "fem", "data", "model.msh")
+morphed_mesh_path = os.path.join(os.path.dirname(__file__), "src", "fem", "data", "morphed_model.msh")
+base_mesh_path = os.path.join(os.path.dirname(__file__), "src", "fem", "data", "model.msh")
+mesh_path = morphed_mesh_path if os.path.exists(morphed_mesh_path) else base_mesh_path
+cad_bend_y = st.session_state.get("cad_bend_y")
+cad_bend_z = st.session_state.get("cad_bend_z")
+
 col_geo, col_opt = st.columns([1, 1], gap="large")
 
 with col_geo:
     st.markdown(section_label("📐", "Anatomical Model & Fixation Geometry"), unsafe_allow_html=True)
     if os.path.exists(mesh_path):
+        if cad_bend_y is not None and len(cad_bend_y) > 0:
+            st.caption("🔧 *Morphed Patient-Specific CAD Anatomy Active*")
         st.plotly_chart(
             get_mesh_plotly_fig(
                 mesh_path,
                 tau_values=[0.10, 0.10, 0.10, 0.10, 0.10],
                 tpms_type=tpms_type_code,
                 fillet_radius=fillet_radius_m,
-                screw_spacing=screw_spacing_m
+                screw_spacing=screw_spacing_m,
+                bend_y_array=cad_bend_y,
+                bend_z_array=cad_bend_z,
             ),
             width="stretch",
             key="geo_base"
@@ -323,8 +358,50 @@ opt_results = {}
 with col_opt:
     st.markdown(section_label("🧪", "Tesseract Differentiable Optimization Engine"), unsafe_allow_html=True)
 
+    is_agent_mode: bool = "Multi-Agent" in workflow_mode
+    agent_delib_container = st.container() if is_agent_mode else None
+
     if req:
-        start_button = st.button("🚀 Start JAX-FEM Adjoint Optimization", width="stretch")
+        button_text: str = "🚀 Launch Autonomous Multi-Agent Synthesis" if is_agent_mode else "🚀 Start JAX-FEM Adjoint Optimization"
+        start_button = st.button(button_text, width="stretch")
+
+        # Stage 1 CAD Morphing Top-Level Placeholder
+        morph_ph = st.empty()
+        if enable_cad_morphing:
+            initial_by = st.session_state.get("cad_bend_y", [])
+            initial_bz = st.session_state.get("cad_bend_z", [])
+            if initial_by:
+                mid_y = initial_by[len(initial_by)//2] * 1000.0 if len(initial_by) > 0 else 0.0
+                mid_z = initial_bz[len(initial_bz)//2] * 1000.0 if len(initial_bz) > 0 else 0.0
+                morph_ph.markdown(
+                    f'<div class="glass-card" style="padding: 0.9rem 1.2rem; margin-bottom: 1.2rem; border-left: 4px solid #10b981; background: rgba(15, 23, 42, 0.92);">'
+                    f'<div style="display: flex; justify-content: space-between; align-items: center;">'
+                    f'<div style="font-weight: 700; font-size: 0.95rem; color: #f8fafc;">'
+                    f'✅ <b>Stage 1 Morphed:</b> Anatomical FFD Plate Morphing Active'
+                    f'</div>'
+                    f'<div style="display: flex; gap: 0.8rem; font-size: 0.82rem;">'
+                    f'<span style="background: rgba(56, 189, 248, 0.15); color: #38bdf8; padding: 0.2rem 0.5rem; border-radius: 4px; font-weight: 600;">Sagittal Y: {mid_y:+.2f}mm</span>'
+                    f'<span style="background: rgba(167, 139, 250, 0.15); color: #a78bfa; padding: 0.2rem 0.5rem; border-radius: 4px; font-weight: 600;">Coronal Z: {mid_z:+.2f}mm</span>'
+                    f'</div>'
+                    f'</div>'
+                    f'</div>',
+                    unsafe_allow_html=True
+                )
+            else:
+                morph_ph.markdown(
+                    f'<div class="glass-card" style="padding: 0.9rem 1.2rem; margin-bottom: 1.2rem; border-left: 4px solid #38bdf8; background: rgba(15, 23, 42, 0.85);">'
+                    f'<div style="display: flex; justify-content: space-between; align-items: center;">'
+                    f'<div style="font-weight: 700; font-size: 0.95rem; color: #f8fafc;">'
+                    f'🔧 <b>Stage 1:</b> Patient-Specific FFD Shape Morphing (PyGeM Active)'
+                    f'</div>'
+                    f'<span style="font-size: 0.8rem; padding: 0.2rem 0.6rem; border-radius: 4px; background: rgba(56, 189, 248, 0.15); color: #38bdf8; font-weight: 600;">{cad_morph_steps} FFD STEPS CONFIGURED</span>'
+                    f'</div>'
+                    f'<div style="font-size: 0.78rem; color: #94a3b8; margin-top: 0.4rem;">'
+                    f'Adapts plate curvature to femoral anatomy (Sagittal Y & Coronal Z) before Stage 2 micro-lattice optimization.'
+                    f'</div>'
+                    f'</div>',
+                    unsafe_allow_html=True
+                )
 
         progress_ph = st.empty()
         status_ph   = st.empty()
@@ -340,7 +417,100 @@ with col_opt:
             grad_ph = st.empty()
 
         if start_button:
-            progress_ph.info("⏳ Connecting to Dual Tesseract Microservices (Port 8000 & Port 8001)…")
+            progress_ph.info("⏳ Connecting to Dual Tesseract Microservices (Port 8000 & Port 8001)...")
+
+            # Run Stage 1 CAD morphing if enabled
+            if enable_cad_morphing:
+                try:
+                    base_mesh = os.path.join(os.path.dirname(__file__), "src", "fem", "data", "model.msh")
+                    morphed_mesh = os.path.join(os.path.dirname(__file__), "src", "fem", "data", "morphed_model.msh")
+                    from src.agent.optimize_cad import run_cad_shape_optimization
+                    
+                    last_cad = None
+                    for cad_state in run_cad_shape_optimization(
+                        base_mesh_path=base_mesh,
+                        morphed_mesh_path=morphed_mesh,
+                        target_disp=req.target_fracture_displacement,
+                        max_steps=cad_morph_steps
+                    ):
+                        last_cad = cad_state
+                        step_idx = cad_state["step"] + 1
+                        pct = min(step_idx / cad_morph_steps, 1.0)
+                        
+                        all_by = cad_state.get("all_bend_y", [])
+                        all_bz = cad_state.get("all_bend_z", [])
+                        
+                        prox_y = all_by[0] * 1000.0 if len(all_by) > 0 else 0.0
+                        mid_y = cad_state["bend_y"] * 1000.0
+                        dist_y = all_by[-1] * 1000.0 if len(all_by) > 0 else 0.0
+                        
+                        prox_z = all_bz[0] * 1000.0 if len(all_bz) > 0 else 0.0
+                        mid_z = cad_state["bend_z"] * 1000.0
+                        dist_z = all_bz[-1] * 1000.0 if len(all_bz) > 0 else 0.0
+                        
+                        morph_html = (
+                            f'<div class="glass-card" style="padding: 1.2rem; margin-bottom: 1.2rem; border-left: 4px solid #38bdf8; background: rgba(15, 23, 42, 0.95);">'
+                            f'<div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.8rem;">'
+                            f'<div style="font-weight: 700; font-size: 1rem; color: #f8fafc;">🔧 Stage 1: Macro CAD Shape Morphing (PyGeM FFD Active)</div>'
+                            f'<span style="font-size: 0.8rem; padding: 0.2rem 0.6rem; border-radius: 4px; background: rgba(56, 189, 248, 0.2); color: #38bdf8; font-weight: 600;">STEP {step_idx}/{cad_morph_steps} ({int(pct*100)}%)</span>'
+                            f'</div>'
+                            f'<div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 0.8rem; margin-bottom: 0.8rem;">'
+                            f'<div style="background: rgba(30, 41, 59, 0.7); padding: 0.6rem 0.8rem; border-radius: 6px;">'
+                            f'<div style="font-size: 0.72rem; color: #94a3b8;">OBJECTIVE LOSS</div>'
+                            f'<div style="font-size: 1.05rem; font-weight: 700; color: #f43f5e;">{cad_state["loss"]:.4f}</div>'
+                            f'<div style="font-size: 0.7rem; color: #64748b;">Motion: {cad_state["frac_disp"]*1000:.3f} mm</div>'
+                            f'</div>'
+                            f'<div style="background: rgba(30, 41, 59, 0.7); padding: 0.6rem 0.8rem; border-radius: 6px;">'
+                            f'<div style="font-size: 0.72rem; color: #94a3b8;">SAGITTAL BEND (Y)</div>'
+                            f'<div style="font-size: 1.05rem; font-weight: 700; color: #38bdf8;">{mid_y:+.3f} mm</div>'
+                            f'<div style="font-size: 0.7rem; color: #64748b;">∂L/∂Y: {cad_state["grad_y"]:.1f}</div>'
+                            f'</div>'
+                            f'<div style="background: rgba(30, 41, 59, 0.7); padding: 0.6rem 0.8rem; border-radius: 6px;">'
+                            f'<div style="font-size: 0.72rem; color: #94a3b8;">CORONAL BEND (Z)</div>'
+                            f'<div style="font-size: 1.05rem; font-weight: 700; color: #a78bfa;">{mid_z:+.3f} mm</div>'
+                            f'<div style="font-size: 0.7rem; color: #64748b;">∂L/∂Z: {cad_state["grad_z"]:.1f}</div>'
+                            f'</div>'
+                            f'</div>'
+                            f'<div style="font-size: 0.78rem; color: #cbd5e1; background: rgba(30, 41, 59, 0.5); padding: 0.5rem 0.8rem; border-radius: 6px;">'
+                            f'📍 <b>5x4x4 FFD Grid Deflections:</b> Proximal: (Y: {prox_y:+.2f}mm, Z: {prox_z:+.2f}mm) · Center Bridge: (Y: {mid_y:+.2f}mm, Z: {mid_z:+.2f}mm) · Distal: (Y: {dist_y:+.2f}mm, Z: {dist_z:+.2f}mm)'
+                            f'</div>'
+                            f'</div>'
+                        )
+                        morph_ph.markdown(morph_html, unsafe_allow_html=True)
+                    
+                    if last_cad:
+                        st.session_state["cad_bend_y"] = last_cad.get("all_bend_y", [])
+                        st.session_state["cad_bend_z"] = last_cad.get("all_bend_z", [])
+                    
+                    # Rebuild FEM solver for the morphed mesh
+                    from src.fem.forward import rebuild_for_morphed_mesh
+                    rebuild_for_morphed_mesh(morphed_mesh)
+                    
+                    # Display persistent completed Stage 1 status card
+                    if last_cad:
+                        final_by = last_cad.get("bend_y", 0.0) * 1000.0
+                        final_bz = last_cad.get("bend_z", 0.0) * 1000.0
+                        final_motion = last_cad.get("frac_disp", 0.0) * 1000.0
+                        done_html = (
+                            f'<div class="glass-card" style="padding: 0.9rem 1.2rem; margin-bottom: 1.2rem; border-left: 4px solid #10b981; background: rgba(15, 23, 42, 0.92);">'
+                            f'<div style="display: flex; justify-content: space-between; align-items: center;">'
+                            f'<div style="font-weight: 700; font-size: 0.95rem; color: #f8fafc;">'
+                            f'✅ <b>Stage 1 Complete:</b> Anatomical FFD Plate Morphing Active'
+                            f'</div>'
+                            f'<div style="display: flex; gap: 0.8rem; font-size: 0.82rem;">'
+                            f'<span style="background: rgba(56, 189, 248, 0.15); color: #38bdf8; padding: 0.2rem 0.5rem; border-radius: 4px; font-weight: 600;">Sagittal Y: {final_by:+.2f}mm</span>'
+                            f'<span style="background: rgba(167, 139, 250, 0.15); color: #a78bfa; padding: 0.2rem 0.5rem; border-radius: 4px; font-weight: 600;">Coronal Z: {final_bz:+.2f}mm</span>'
+                            f'<span style="background: rgba(16, 185, 129, 0.15); color: #10b981; padding: 0.2rem 0.5rem; border-radius: 4px; font-weight: 600;">Macro Motion: {final_motion:.3f}mm</span>'
+                            f'</div>'
+                            f'</div>'
+                            f'</div>'
+                        )
+                        morph_ph.markdown(done_html, unsafe_allow_html=True)
+                    st.toast("✅ Stage 1 FFD CAD Morphing Complete: Solid mesh morphed to patient anatomy", icon="🔧")
+                    
+                except Exception as morph_err:
+                    morph_ph.empty()
+                    st.warning(f"Stage 1 CAD morphing warning: {morph_err}. Continuing with base mesh.")
 
             loss_history     = []
             disp_history     = []
@@ -353,25 +523,41 @@ with col_opt:
                 "Dist Anchor (%)": []
             }
             grad_history = {
-                "∂L/∂τ_p_anc": [],
-                "∂L/∂τ_p_tra": [],
-                "∂L/∂τ_bridge": [],
-                "∂L/∂τ_d_tra": [],
-                "∂L/∂τ_d_anc": [],
-                "∂L/∂σ_blend": [],
-                "∂L/∂t_top": [],
-                "∂L/∂t_bottom": [],
-                "∂L/∂s_pitch": [],
-                "∂L/∂L_bridge": [],
-                "∂L/∂d_cell": [],
-                "∂L/∂r_fillet": []
+                "dL/dtau_p_anc": [],
+                "dL/dtau_p_tra": [],
+                "dL/dtau_bridge": [],
+                "dL/dtau_d_tra": [],
+                "dL/dtau_d_anc": [],
+                "dL/dsigma_blend": [],
+                "dL/dt_top": [],
+                "dL/dt_bottom": [],
+                "dL/ds_pitch": [],
+                "dL/dL_bridge": [],
+                "dL/dd_cell": [],
+                "dL/dr_fillet": []
             }
             
             target_disp      = req.target_fracture_displacement
             target_mm        = target_disp * 1000
 
-            fem_client = tc.sdk.tesseract.Tesseract.from_url("http://127.0.0.1:8000")
-            geom_client = tc.sdk.tesseract.Tesseract.from_url("http://127.0.0.1:8001")
+            fem_url = os.environ.get("FEM_TESSERACT_URL", "http://127.0.0.1:8000")
+            geom_url = os.environ.get("GEOMETRY_TESSERACT_URL", "http://127.0.0.1:8001")
+            fem_client = None
+            geom_client = None
+            try:
+                import httpx as _httpx
+                resp_fem = _httpx.get(f"{fem_url}/health", timeout=0.5)
+                resp_geo = _httpx.get(f"{geom_url}/health", timeout=0.5)
+                if resp_fem.status_code == 200 and resp_geo.status_code == 200:
+                    fem_client = tc.sdk.tesseract.Tesseract.from_url(fem_url)
+                    geom_client = tc.sdk.tesseract.Tesseract.from_url(geom_url)
+            except Exception:
+                try:
+                    fem_client = tc.sdk.tesseract.Tesseract.from_url(fem_url)
+                    geom_client = tc.sdk.tesseract.Tesseract.from_url(geom_url)
+                except Exception:
+                    fem_client = None
+                    geom_client = None
 
             def to_porosity(t):
                 # Physically accurate mapping from level-set threshold tau in [0.10, 1.45]
@@ -381,126 +567,222 @@ with col_opt:
 
             patience_val = 5 if enable_early_stopping else 9999
             last_tau = None
-            for state in run_optimization(
-                target_fracture_displacement=target_disp,
-                patience=patience_val,
-                max_steps=opt_max_steps,
-                fem_client=fem_client,
-                geometry_client=geom_client,
-                objective=req.objective,
-                max_mass=req.max_mass,
-                material_modulus_gpa=selected_material.youngs_modulus_gpa,
-                tpms_ga_exponent=selected_material.tpms_ga_exponent,
-                yield_strength_mpa=selected_material.yield_strength_mpa,
-                init_cell_size=cell_size_m,
-                init_t_top=t_top_m,
-                init_t_bot=t_bot_m,
-                init_screw_spacing=screw_spacing_m,
-                init_bridge_span=bridge_span_m,
-                init_fillet_radius=fillet_radius_m
-            ):
-                loss_history.append(state["loss"])
-                disp_history.append(state["frac_disp"] * 1000)
-                phase_history.append(state.get("phase", "Adam"))
-                
-                t_p_anc = state.get("tau_p_anc", state["tau_prox"])
-                t_p_tra = state.get("tau_p_tra", state["tau_prox"])
-                t_bri   = state["tau_bridge"]
-                t_d_tra = state.get("tau_d_tra", state["tau_dist"])
-                t_d_anc = state.get("tau_d_anc", state["tau_dist"])
-                sigma   = state.get("sigma_blend", 0.015)
-                
-                if "t_top_mm" in state:
-                    t_top_mm = state["t_top_mm"]
-                    t_top_m = t_top_mm / 1000.0
-                if "t_bottom_mm" in state:
-                    t_bot_mm = state["t_bottom_mm"]
-                    t_bot_m = t_bot_mm / 1000.0
-                if "h_tpms_mm" in state:
-                    h_tpms_mm = state["h_tpms_mm"]
-                if "screw_spacing_mm" in state:
-                    screw_spacing_mm = state["screw_spacing_mm"]
-                    screw_spacing_m = screw_spacing_mm / 1000.0
-                if "bridge_span_mm" in state:
-                    bridge_span_mm = state["bridge_span_mm"]
-                    bridge_span_m = bridge_span_mm / 1000.0
-                if "fillet_radius_mm" in state:
-                    fillet_radius_mm = state["fillet_radius_mm"]
-                    fillet_radius_m = fillet_radius_mm / 1000.0
-                if "cell_size_mm" in state:
-                    cell_size_mm = state["cell_size_mm"]
-                    cell_size_m = cell_size_mm / 1000.0
-                
-                porosity_history["Prox Anchor (%)"].append(to_porosity(t_p_anc))
-                porosity_history["Prox Transition (%)"].append(to_porosity(t_p_tra))
-                porosity_history["Bridge Gap (%)"].append(to_porosity(t_bri))
-                porosity_history["Dist Transition (%)"].append(to_porosity(t_d_tra))
-                porosity_history["Dist Anchor (%)"].append(to_porosity(t_d_anc))
-                
-                grad_history["∂L/∂τ_p_anc"].append(state.get("grad_p_anc", 0.0))
-                grad_history["∂L/∂τ_p_tra"].append(state.get("grad_p_tra", 0.0))
-                grad_history["∂L/∂τ_bridge"].append(state.get("grad_bridge", 0.0))
-                grad_history["∂L/∂τ_d_tra"].append(state.get("grad_d_tra", 0.0))
-                grad_history["∂L/∂τ_d_anc"].append(state.get("grad_d_anc", 0.0))
-                grad_history["∂L/∂σ_blend"].append(state.get("grad_sigma", 0.0))
-                grad_history["∂L/∂t_top"].append(state.get("grad_t_top", 0.0))
-                grad_history["∂L/∂t_bottom"].append(state.get("grad_t_bot", 0.0))
-                grad_history["∂L/∂s_pitch"].append(state.get("grad_pitch", 0.0))
-                grad_history["∂L/∂L_bridge"].append(state.get("grad_bridge_span", 0.0))
-                grad_history["∂L/∂d_cell"].append(state.get("grad_cell_size", 0.0))
-                grad_history["∂L/∂r_fillet"].append(state.get("grad_fillet", 0.0))
-                
-                last_tau = (t_p_anc, t_p_tra, t_bri, t_d_tra, t_d_anc, sigma)
+            final_agent_state = None
 
-                progress_ph.progress(
-                    min((state["step"] + 1) / opt_max_steps, 1.0),
-                    text=f"Step {state['step']+1}/{opt_max_steps} · ⚡ Adam · Loss: {state['loss']:.2f} · Pitch: {screw_spacing_mm:.1f}mm · Bridge: {bridge_span_mm:.1f}mm · Core: {h_tpms_mm:.2f}mm · Motion: {state['frac_disp']*1000:.3f}mm"
-                )
+            if is_agent_mode:
+                # Multi-Agent LangGraph Orchestration Flow
+                with agent_delib_container:
+                    st.markdown("#### 🤖 Multi-Agent Collaborative Deliberation")
+                    agent_chat_ph = st.empty()
+                    rendered_messages = []
+
+                for event in run_design_agent(
+                    surgeon_prompt=user_prompt,
+                    fem_client=fem_client,
+                    geometry_client=geom_client,
+                    max_attempts=3,
+                    max_steps=opt_max_steps,
+                    bend_y_array=st.session_state.get("cad_bend_y"),
+                    bend_z_array=st.session_state.get("cad_bend_z"),
+                    stream=True
+                ):
+                    if event["type"] == "agent_message":
+                        msg = event["message"]
+                        rendered_messages.append(msg)
+
+                        chat_html = ['<div style="display: flex; flex-direction: column; gap: 0.6rem; margin-bottom: 1rem;">']
+                        for m in rendered_messages:
+                            border_color = {
+                                "clinical_interpreter": "#10b981",
+                                "materials_advisor": "#f59e0b",
+                                "optimization_controller": "#ef4444",
+                                "validation_auditor": "#8b5cf6"
+                            }.get(m["agent_name"], "#6366f1")
+                            badge_bg = {
+                                "status": "rgba(148, 163, 184, 0.15)",
+                                "result": "rgba(56, 189, 248, 0.15)",
+                                "correction": "rgba(239, 68, 68, 0.15)"
+                            }.get(m.get("message_type", "status"), "rgba(99, 102, 241, 0.15)")
+                            card_html = (
+                                f'<div class="glass-card" style="padding: 0.75rem 1rem; border-left: 4px solid {border_color}; background: rgba(15, 23, 42, 0.85); margin-bottom: 0.5rem;">'
+                                f'<div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.35rem;">'
+                                f'<span style="font-weight: 600; font-size: 0.88rem; color: #f8fafc;">{m["agent_emoji"]} {m["agent_display_name"]}</span>'
+                                f'<span style="font-size: 0.72rem; padding: 0.1rem 0.4rem; border-radius: 4px; background: {badge_bg}; color: #94a3b8;">{m.get("message_type", "status").upper()}</span>'
+                                f'</div>'
+                                f'<div style="font-size: 0.82rem; line-height: 1.45; color: #cbd5e1; white-space: pre-wrap;">{m["content"]}</div>'
+                                f'</div>'
+                            )
+                            chat_html.append(card_html)
+                        chat_html.append('</div>')
+                        with agent_delib_container:
+                            agent_chat_ph.markdown("".join(chat_html), unsafe_allow_html=True)
+
+                        # Sync optimization telemetry if available
+                        st_data = event.get("state", {})
+                        opt_res = st_data.get("optimization_result")
+                        if opt_res and "step_history" in opt_res and opt_res["step_history"]:
+                            steps = opt_res["step_history"]
+                            loss_history = [s["loss"] for s in steps]
+                            disp_history = [s["frac_disp"] * 1000 for s in steps]
+                            n_msg = len(rendered_messages)
+                            loss_ph.plotly_chart(create_loss_tracking_fig(loss_history), width="stretch", key=f"agent_loss_{n_msg}")
+                            disp_ph.plotly_chart(create_disp_tracking_fig(disp_history, target_mm), width="stretch", key=f"agent_disp_{n_msg}")
+                            status_ph.markdown(StatusBadge.for_displacement(disp_history[-1], target_mm), unsafe_allow_html=True)
+
+                    elif event["type"] == "final_result":
+                        final_agent_state = event.get("state", {})
+
+                # Extract final results from agent state
+                if final_agent_state:
+                    opt_res = final_agent_state.get("optimization_result", {})
+                    final_theta = opt_res.get("final_theta", [])
+                    final_metrics = opt_res.get("final_metrics", {})
+                    if len(final_theta) >= 6:
+                        last_tau = tuple(final_theta[1:7]) if len(final_theta) >= 7 else tuple(final_theta[1:6]) + (0.015,)
+                    if final_metrics.get("frac_disp", 0.0) > 0:
+                        disp_history = [final_metrics["frac_disp"] * 1000]
+                        loss_history = [final_metrics.get("loss", 0.0)]
+
+                optimization_finished = last_tau is not None
+                if optimization_finished:
+                    opt_results = {
+                        "last_tau": last_tau,
+                        "cell_size_m": cell_size_m,
+                        "t_top_m": t_top_m,
+                        "t_bottom_m": t_bot_m,
+                        "screw_spacing_m": screw_spacing_m,
+                        "bridge_span_m": bridge_span_m,
+                        "fillet_radius_m": fillet_radius_m,
+                        "avg_porosity": float(final_metrics.get("mean_porosity", 0.5)) * 100.0,
+                        "final_disp_mm": float(disp_history[-1]) if disp_history else 0.0,
+                        "target_disp": target_disp,
+                        "target_mm": target_mm
+                    }
+                    st.session_state.last_opt_results = opt_results
+                    st.balloons()
+
+            else:
+                # Direct Parametric Optimization Mode (existing flow)
+                for state in run_optimization(
+                    target_fracture_displacement=target_disp,
+                    patience=patience_val,
+                    max_steps=opt_max_steps,
+                    fem_client=fem_client,
+                    geometry_client=geom_client,
+                    objective=req.objective,
+                    max_mass=req.max_mass,
+                    material_modulus_gpa=selected_material.youngs_modulus_gpa,
+                    tpms_ga_exponent=selected_material.tpms_ga_exponent,
+                    yield_strength_mpa=selected_material.yield_strength_mpa,
+                    init_cell_size=cell_size_m,
+                    init_t_top=t_top_m,
+                    init_t_bot=t_bot_m,
+                    init_screw_spacing=screw_spacing_m,
+                    init_bridge_span=bridge_span_m,
+                    init_fillet_radius=fillet_radius_m
+                ):
+                    loss_history.append(state["loss"])
+                    disp_history.append(state["frac_disp"] * 1000)
+                    phase_history.append(state.get("phase", "Adam"))
+                    
+                    t_p_anc = state.get("tau_p_anc", state["tau_prox"])
+                    t_p_tra = state.get("tau_p_tra", state["tau_prox"])
+                    t_bri   = state["tau_bridge"]
+                    t_d_tra = state.get("tau_d_tra", state["tau_dist"])
+                    t_d_anc = state.get("tau_d_anc", state["tau_dist"])
+                    sigma   = state.get("sigma_blend", 0.015)
+                    
+                    if "t_top_mm" in state:
+                        t_top_mm = state["t_top_mm"]
+                        t_top_m = t_top_mm / 1000.0
+                    if "t_bottom_mm" in state:
+                        t_bot_mm = state["t_bottom_mm"]
+                        t_bot_m = t_bot_mm / 1000.0
+                    if "h_tpms_mm" in state:
+                        h_tpms_mm = state["h_tpms_mm"]
+                    if "screw_spacing_mm" in state:
+                        screw_spacing_mm = state["screw_spacing_mm"]
+                        screw_spacing_m = screw_spacing_mm / 1000.0
+                    if "bridge_span_mm" in state:
+                        bridge_span_mm = state["bridge_span_mm"]
+                        bridge_span_m = bridge_span_mm / 1000.0
+                    if "fillet_radius_mm" in state:
+                        fillet_radius_mm = state["fillet_radius_mm"]
+                        fillet_radius_m = fillet_radius_mm / 1000.0
+                    if "cell_size_mm" in state:
+                        cell_size_mm = state["cell_size_mm"]
+                        cell_size_m = cell_size_mm / 1000.0
+                    
+                    porosity_history["Prox Anchor (%)"].append(to_porosity(t_p_anc))
+                    porosity_history["Prox Transition (%)"].append(to_porosity(t_p_tra))
+                    porosity_history["Bridge Gap (%)"].append(to_porosity(t_bri))
+                    porosity_history["Dist Transition (%)"].append(to_porosity(t_d_tra))
+                    porosity_history["Dist Anchor (%)"].append(to_porosity(t_d_anc))
+                    
+                    grad_history["dL/dtau_p_anc"].append(state.get("grad_p_anc", 0.0))
+                    grad_history["dL/dtau_p_tra"].append(state.get("grad_p_tra", 0.0))
+                    grad_history["dL/dtau_bridge"].append(state.get("grad_bridge", 0.0))
+                    grad_history["dL/dtau_d_tra"].append(state.get("grad_d_tra", 0.0))
+                    grad_history["dL/dtau_d_anc"].append(state.get("grad_d_anc", 0.0))
+                    grad_history["dL/dsigma_blend"].append(state.get("grad_sigma", 0.0))
+                    grad_history["dL/dt_top"].append(state.get("grad_t_top", 0.0))
+                    grad_history["dL/dt_bottom"].append(state.get("grad_t_bot", 0.0))
+                    grad_history["dL/ds_pitch"].append(state.get("grad_pitch", 0.0))
+                    grad_history["dL/dL_bridge"].append(state.get("grad_bridge_span", 0.0))
+                    grad_history["dL/dd_cell"].append(state.get("grad_cell_size", 0.0))
+                    grad_history["dL/dr_fillet"].append(state.get("grad_fillet", 0.0))
+                    
+                    last_tau = (t_p_anc, t_p_tra, t_bri, t_d_tra, t_d_anc, sigma)
+
+                    progress_ph.progress(
+                        min((state["step"] + 1) / opt_max_steps, 1.0),
+                        text=f"Step {state['step']+1}/{opt_max_steps} | Loss: {state['loss']:.2f} | Pitch: {screw_spacing_mm:.1f}mm | Bridge: {bridge_span_mm:.1f}mm | Core: {h_tpms_mm:.2f}mm | Motion: {state['frac_disp']*1000:.3f}mm"
+                    )
+                    
+                    loss_ph.plotly_chart(create_loss_tracking_fig(loss_history), width="stretch")
+                    disp_ph.plotly_chart(create_disp_tracking_fig(disp_history, target_mm), width="stretch")
+                    status_ph.markdown(StatusBadge.for_displacement(disp_history[-1], target_mm), unsafe_allow_html=True)
+                    porosity_ph.plotly_chart(create_porosity_tracking_fig(porosity_history, target_porosity_pct=(1.0 - req.max_mass)*100.0), width="stretch")
+                    grad_ph.plotly_chart(create_gradient_tracking_fig(grad_history), width="stretch")
+
+                progress_ph.empty()
+                optimization_finished = True
+                opt_results = {
+                    "last_tau": last_tau,
+                    "cell_size_m": cell_size_m,
+                    "t_top_m": t_top_m,
+                    "t_bottom_m": t_bot_m,
+                    "screw_spacing_m": screw_spacing_m,
+                    "bridge_span_m": bridge_span_m,
+                    "fillet_radius_m": fillet_radius_m,
+                    "avg_porosity": float(state.get("mean_porosity", np.mean([porosity_history[k][-1] for k in porosity_history]) / 100.0) * 100.0 if state.get("mean_porosity", 0) <= 1.0 else state.get("mean_porosity", 55.0)),
+                    "final_disp_mm": float(disp_history[-1]),
+                    "target_disp": target_disp,
+                    "target_mm": target_mm
+                }
+
+                # Persist optimization telemetry in session state
+                st.session_state.last_loss_history = loss_history
+                st.session_state.last_disp_history = disp_history
+                st.session_state.last_porosity_history = porosity_history
+                st.session_state.last_grad_history = grad_history
+                st.session_state.last_opt_results = opt_results
                 
-                loss_ph.plotly_chart(create_loss_tracking_fig(loss_history), width="stretch")
-                disp_ph.plotly_chart(create_disp_tracking_fig(disp_history, target_mm), width="stretch")
-                status_ph.markdown(StatusBadge.for_displacement(disp_history[-1], target_mm), unsafe_allow_html=True)
-                porosity_ph.plotly_chart(create_porosity_tracking_fig(porosity_history, target_porosity_pct=(1.0 - req.max_mass)*100.0), width="stretch")
-                grad_ph.plotly_chart(create_gradient_tracking_fig(grad_history), width="stretch")
-
-            progress_ph.empty()
-            optimization_finished = True
-            opt_results = {
-                "last_tau": last_tau,
-                "cell_size_m": cell_size_m,
-                "t_top_m": t_top_m,
-                "t_bottom_m": t_bot_m,
-                "screw_spacing_m": screw_spacing_m,
-                "bridge_span_m": bridge_span_m,
-                "fillet_radius_m": fillet_radius_m,
-                "avg_porosity": float(state.get("mean_porosity", np.mean([porosity_history[k][-1] for k in porosity_history]) / 100.0) * 100.0 if state.get("mean_porosity", 0) <= 1.0 else state.get("mean_porosity", 55.0)),
-                "final_disp_mm": float(disp_history[-1]),
-                "target_disp": target_disp,
-                "target_mm": target_mm
-            }
-
-            # Persist optimization telemetry in session state
-            st.session_state.last_loss_history = loss_history
-            st.session_state.last_disp_history = disp_history
-            st.session_state.last_porosity_history = porosity_history
-            st.session_state.last_grad_history = grad_history
-            st.session_state.last_opt_results = opt_results
-            
-            # Append run record to session history
-            solid_mass = 64.0 * (selected_material.density_g_cm3 / 4.43)
-            optimized_mass = solid_mass * (1.0 - (opt_results["avg_porosity"] / 100.0) * 0.85)
-            
-            st.session_state.run_history.append({
-                "Timestamp": datetime.datetime.now().strftime("%H:%M:%S"),
-                "Scenario": req.objective,
-                "Material": selected_material.code,
-                "Fidelity": "TET10" if "TET10" in fidelity_choice else "TET4",
-                "Target Motion": f"{target_mm:.2f} mm",
-                "Achieved Motion": f"{opt_results['final_disp_mm']:.3f} mm",
-                "Avg Porosity": f"{opt_results['avg_porosity']:.1f}%",
-                "Mass Reduction": f"{((solid_mass - optimized_mass)/solid_mass)*100:.1f}%"
-            })
-            st.balloons()
+                # Append run record to session history
+                solid_mass = 64.0 * (selected_material.density_g_cm3 / 4.43)
+                optimized_mass = solid_mass * (1.0 - (opt_results["avg_porosity"] / 100.0) * 0.85)
+                
+                st.session_state.run_history.append({
+                    "Timestamp": datetime.datetime.now().strftime("%H:%M:%S"),
+                    "Scenario": req.objective,
+                    "Material": selected_material.code,
+                    "Fidelity": "TET10" if "TET10" in fidelity_choice else "TET4",
+                    "Target Motion": f"{target_mm:.2f} mm",
+                    "Achieved Motion": f"{opt_results['final_disp_mm']:.3f} mm",
+                    "Avg Porosity": f"{opt_results['avg_porosity']:.1f}%",
+                    "Mass Reduction": f"{((solid_mass - optimized_mass)/solid_mass)*100:.1f}%"
+                })
+                st.balloons()
         else:
             target_mm = req.target_fracture_displacement * 1000
             if "last_loss_history" in st.session_state and st.session_state.last_loss_history:
@@ -514,7 +796,7 @@ with col_opt:
                 disp_ph.plotly_chart(create_disp_tracking_fig([0.018], target_mm), width="stretch")
                 status_ph.markdown(StatusBadge.for_displacement(0.018, target_mm), unsafe_allow_html=True)
                 porosity_ph.plotly_chart(create_porosity_tracking_fig({"Prox Anchor (%)": [12.0], "Bridge Gap (%)": [15.0], "Dist Anchor (%)": [12.0]}, target_porosity_pct=(1.0 - req.max_mass)*100.0), width="stretch")
-                grad_ph.plotly_chart(create_gradient_tracking_fig({"∂L/∂τ_p_anc": [0.0], "∂L/∂τ_p_tra": [0.0], "∂L/∂τ_bridge": [0.0], "∂L/∂τ_d_tra": [0.0], "∂L/∂τ_d_anc": [0.0], "∂L/∂σ_blend": [0.0], "∂L/∂t_top": [0.0], "∂L/∂t_bottom": [0.0], "∂L/∂L_bridge": [0.0], "∂L/∂d_cell": [0.0], "∂L/∂r_fillet": [0.0]}), width="stretch")
+                grad_ph.plotly_chart(create_gradient_tracking_fig({"dL/dtau_p_anc": [0.0], "dL/dtau_p_tra": [0.0], "dL/dtau_bridge": [0.0], "dL/dtau_d_tra": [0.0], "dL/dtau_d_anc": [0.0], "dL/dsigma_blend": [0.0], "dL/dt_top": [0.0], "dL/dt_bottom": [0.0], "dL/dL_bridge": [0.0], "dL/dd_cell": [0.0], "dL/dr_fillet": [0.0]}), width="stretch")
     else:
         st.info("👈 Please parse a clinical prompt to initialize optimization parameters.")
 
@@ -654,21 +936,40 @@ if current_results is not None and current_results.get("last_tau") is not None:
                 unsafe_allow_html=True
             )
                 
+            active_by = st.session_state.get("cad_bend_y")
+            active_bz = st.session_state.get("cad_bend_z")
+            if active_by is not None and len(active_by) > 0:
+                st.markdown(
+                    '<div style="background: rgba(56, 189, 248, 0.1); border: 1px solid rgba(56, 189, 248, 0.3); border-radius: 6px; padding: 0.4rem 0.8rem; margin-bottom: 0.6rem; font-size: 0.8rem; color: #38bdf8;">'
+                    '🔧 <b>Patient-Specific Anatomical Morphing Active</b>: 3D TPMS surface, Von Mises stress, and STL export conform to Stage 1 PyGeM FFD contours.'
+                    '</div>',
+                    unsafe_allow_html=True
+                )
+
             with r1:
                 title1 = "🛡️ 3D Factor of Safety Distribution (Full Remeshed TPMS Surface)" if is_fos else "⚡ 3D Von Mises Stress Contour (Full Remeshed TPMS Surface)"
                 st.caption(title1)
-                st.plotly_chart(get_von_mises_plotly_fig(mesh_path, nodal_vm, yield_strength_mpa=selected_material.yield_strength_mpa, mode=mode_str, tau_values=last_tau, tpms_type=tpms_type_code, fillet_radius=fillet_radius_m, screw_spacing=screw_spacing_m, bridge_span=bridge_span_m, t_top=t_top_m, t_bottom=t_bot_m), width="stretch", key="vm_ext")
+                st.plotly_chart(get_von_mises_plotly_fig(mesh_path, nodal_vm, yield_strength_mpa=selected_material.yield_strength_mpa, mode=mode_str, tau_values=last_tau, tpms_type=tpms_type_code, fillet_radius=fillet_radius_m, screw_spacing=screw_spacing_m, bridge_span=bridge_span_m, t_top=t_top_m, t_bottom=t_bot_m, bend_y_array=active_by, bend_z_array=active_bz), width="stretch", key="vm_ext")
             with r2:
                 title2 = "🛡️ Internal Factor of Safety (Z-cut Sagittal TPMS View)" if is_fos else "⚡ Internal Stress Distribution (Z-cut Sagittal TPMS View)"
                 st.caption(title2)
-                st.plotly_chart(get_von_mises_plotly_fig(mesh_path, nodal_vm, clip_axis="z", yield_strength_mpa=selected_material.yield_strength_mpa, mode=mode_str, tau_values=last_tau, tpms_type=tpms_type_code, fillet_radius=fillet_radius_m, screw_spacing=screw_spacing_m, bridge_span=bridge_span_m, t_top=t_top_m, t_bottom=t_bot_m), width="stretch", key="vm_int")
+                st.plotly_chart(get_von_mises_plotly_fig(mesh_path, nodal_vm, clip_axis="z", yield_strength_mpa=selected_material.yield_strength_mpa, mode=mode_str, tau_values=last_tau, tpms_type=tpms_type_code, fillet_radius=fillet_radius_m, screw_spacing=screw_spacing_m, bridge_span=bridge_span_m, t_top=t_top_m, t_bottom=t_bot_m, bend_y_array=active_by, bend_z_array=active_bz), width="stretch", key="vm_int")
         else:
+            active_by = st.session_state.get("cad_bend_y")
+            active_bz = st.session_state.get("cad_bend_z")
+            if active_by is not None and len(active_by) > 0:
+                st.markdown(
+                    '<div style="background: rgba(56, 189, 248, 0.1); border: 1px solid rgba(56, 189, 248, 0.3); border-radius: 6px; padding: 0.4rem 0.8rem; margin-bottom: 0.6rem; font-size: 0.8rem; color: #38bdf8;">'
+                    '🔧 <b>Patient-Specific Anatomical Morphing Active</b>: 3D TPMS surface conforms to Stage 1 PyGeM FFD contours.'
+                    '</div>',
+                    unsafe_allow_html=True
+                )
             with r1:
                 st.caption(f"🔬 3D {tpms_choice.split('·')[0].strip()} Solid Surface (Top: {t_top_mm:.2f}mm · Core: {h_tpms_mm:.2f}mm · Bot: {t_bot_mm:.2f}mm · Bridge: {bridge_span_mm:.1f}mm)")
-                st.plotly_chart(get_mesh_plotly_fig(mesh_path, tau_values=last_tau, tpms_type=tpms_type_code, fillet_radius=fillet_radius_m, screw_spacing=screw_spacing_m, bridge_span=bridge_span_m, t_top=t_top_m, t_bottom=t_bot_m), width="stretch", key="final_ext")
+                st.plotly_chart(get_mesh_plotly_fig(mesh_path, tau_values=last_tau, tpms_type=tpms_type_code, fillet_radius=fillet_radius_m, screw_spacing=screw_spacing_m, bridge_span=bridge_span_m, t_top=t_top_m, t_bottom=t_bot_m, bend_y_array=active_by, bend_z_array=active_bz), width="stretch", key="final_ext")
             with r2:
                 st.caption(f"🔬 Internal TPMS Porosity Gradient (Z-cut Sagittal View)")
-                st.plotly_chart(get_mesh_plotly_fig(mesh_path, tau_values=last_tau, clip_axis="z", tpms_type=tpms_type_code, fillet_radius=fillet_radius_m, screw_spacing=screw_spacing_m, bridge_span=bridge_span_m, t_top=t_top_m, t_bottom=t_bot_m), width="stretch", key="final_int")
+                st.plotly_chart(get_mesh_plotly_fig(mesh_path, tau_values=last_tau, clip_axis="z", tpms_type=tpms_type_code, fillet_radius=fillet_radius_m, screw_spacing=screw_spacing_m, bridge_span=bridge_span_m, t_top=t_top_m, t_bottom=t_bot_m, bend_y_array=active_by, bend_z_array=active_bz), width="stretch", key="final_int")
 
     # Manufacturing CAD STL export
     st.markdown("---")
@@ -676,7 +977,9 @@ if current_results is not None and current_results.get("last_tau") is not None:
     exp_col1, exp_col2 = st.columns(2, gap="large")
     
     with exp_col1:
-        stl_bytes = generate_tpms_stl_bytes(last_tau, tpms_type=tpms_type_code, fillet_radius=fillet_radius_m, screw_spacing=screw_spacing_m, bridge_span=bridge_span_m, t_top=t_top_m, t_bottom=t_bot_m)
+        active_by = st.session_state.get("cad_bend_y")
+        active_bz = st.session_state.get("cad_bend_z")
+        stl_bytes = generate_tpms_stl_bytes(last_tau, tpms_type=tpms_type_code, fillet_radius=fillet_radius_m, screw_spacing=screw_spacing_m, bridge_span=bridge_span_m, t_top=t_top_m, t_bottom=t_bot_m, bend_y_array=active_by, bend_z_array=active_bz)
         st.download_button(
             label=f"🖨️ Download 3D-Printable {tpms_choice.split('·')[0].strip()} STL (.stl)",
             data=stl_bytes,

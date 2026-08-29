@@ -1,8 +1,16 @@
 # JAX-FEM Forward and Adjoint Biomechanical Solver Setup
 import os
+import sys
+import logging
 from typing import Tuple, Union, List, Any, Optional
 import numpy as np
 import jax.numpy as jnp
+
+logging.getLogger("jax_fem").setLevel(logging.ERROR)
+os.environ["JAX_FEM_LOG_LEVEL"] = "ERROR"
+
+import src.fem.petsc_compat
+
 from jax_fem.solver import solver, ad_wrapper
 from src.fem.problem import build_problem, BiomechanicsProblem
 
@@ -17,7 +25,14 @@ ADJOINT_SOLVER_OPTIONS = {
     "spsolve_solver": {}
 }
 
-mesh_path: str = os.path.join(os.path.dirname(__file__), "data", "model.msh")
+_data_dir: str = os.path.join(os.path.dirname(__file__), "data")
+_morphed_path: str = os.path.join(_data_dir, "morphed_model.msh")
+_base_path: str = os.path.join(_data_dir, "model.msh")
+
+# Prefer morphed mesh if it exists (Stage 1 CAD morphing was run),
+# otherwise fall back to the base solid mesh.
+mesh_path: str = _morphed_path if os.path.exists(_morphed_path) else _base_path
+
 if os.path.exists(mesh_path):
     problem: Optional[BiomechanicsProblem] = build_problem(mesh_path)
     # Differentiable forward and adjoint solver wrapper
@@ -29,6 +44,37 @@ if os.path.exists(mesh_path):
 else:
     problem = None
     fwd_pred = None
+
+
+def rebuild_for_morphed_mesh(morphed_mesh_path: Optional[str] = None) -> None:
+    """Re-initialize the global problem and adjoint wrapper for a morphed mesh.
+
+    Call this after Stage 1 (CAD morphing) writes morphed_model.msh so that
+    Stage 2 (TPMS micro-lattice optimization) operates on the morphed geometry.
+
+    Parameters
+    ----------
+    morphed_mesh_path : str, optional
+        Path to the morphed mesh file. Defaults to the standard morphed_model.msh
+        location inside the data directory.
+    """
+    global mesh_path, problem, fwd_pred
+
+    if morphed_mesh_path is None:
+        morphed_mesh_path = _morphed_path
+
+    if not os.path.exists(morphed_mesh_path):
+        print(f"[forward.py] Morphed mesh not found at {morphed_mesh_path}, keeping current mesh.")
+        return
+
+    mesh_path = morphed_mesh_path
+    problem = build_problem(mesh_path)
+    fwd_pred = ad_wrapper(
+        problem,
+        solver_options=SOLVER_OPTIONS,
+        adjoint_solver_options=ADJOINT_SOLVER_OPTIONS
+    )
+    print(f"[forward.py] Rebuilt FEM problem for morphed mesh: {mesh_path}")
 
 
 def solve_fem(theta: Union[List[float], jnp.ndarray, np.ndarray]) -> Tuple[jnp.ndarray, jnp.ndarray, jnp.ndarray, jnp.ndarray]:

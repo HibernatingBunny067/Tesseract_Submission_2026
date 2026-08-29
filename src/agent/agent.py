@@ -89,10 +89,9 @@ def _parse_with_backend_llm(prompt: str, api_key: str) -> Optional[DesignRequest
     }
     
     candidate_models = [
-        "openai/gpt-oss-120b",
-        "openai/gpt-oss-20b",
-        "qwen/qwen3.6-27b",
-        "groq/compound-mini"
+        "llama-3.3-70b-versatile",
+        "llama-3.1-8b-instant",
+        "mixtral-8x7b-32768"
     ]
     
     for model in candidate_models:

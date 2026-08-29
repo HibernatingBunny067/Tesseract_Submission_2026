@@ -1,8 +1,17 @@
 import os
+import sys
+import logging
 import numpy as np, jax
 import jax.numpy as jnp
 import meshio
 from typing import Optional, Union, List, Tuple, Callable, Any
+
+# Suppress jax_fem debug and info output in terminal
+logging.getLogger("jax_fem").setLevel(logging.ERROR)
+os.environ["JAX_FEM_LOG_LEVEL"] = "ERROR"
+
+import src.fem.petsc_compat
+
 from jax_fem.problem import Problem
 from jax_fem.solver import solver
 from jax_fem.generate_mesh import get_meshio_cell_type, Mesh

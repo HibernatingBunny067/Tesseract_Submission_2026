@@ -1,6 +1,7 @@
 # Copyright 2025 Pasteur Labs. All Rights Reserved.
 # SPDX-License-Identifier: Apache-2.0
 
+import sys
 from typing import Any
 import numpy as np
 import jax
@@ -12,6 +13,7 @@ from pydantic import BaseModel, Field
 from tesseract_core.runtime import (
     Array, Differentiable, Float64
 )
+import src.fem.petsc_compat
 
 from src.fem.forward import solve_fem_differentiable
 

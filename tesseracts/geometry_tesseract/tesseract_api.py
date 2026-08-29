@@ -12,6 +12,7 @@ from pydantic import BaseModel, Field
 from tesseract_core.runtime import (
     Array, Differentiable, Float64
 )
+import src.fem.petsc_compat
 
 from src.fem.problem import evaluate_sandwich_and_screw_masks, evaluate_tpms_field
 

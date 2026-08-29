@@ -168,3 +168,80 @@ Material:         {material.name} ({material.code}, E={material.youngs_modulus_g
     }
     with open(JSONL_LOG_PATH, "a", encoding="utf-8") as f:
         f.write(json.dumps(json_record) + "\n")
+
+
+AGENT_TEXT_LOG_PATH: str = os.path.join(LOGS_DIR, "agent_deliberation.log")
+AGENT_JSONL_PATH: str = os.path.join(LOGS_DIR, "agent_session.jsonl")
+
+
+def log_agent_message(
+    agent_name: str,
+    display_name: str,
+    emoji: str,
+    message_type: str,
+    content: str,
+    data: Optional[Dict[str, Any]] = None
+) -> None:
+    """
+    Dedicated logger for real-time agent thoughts, clinical interpretations,
+    material recommendations, and audit corrections.
+    """
+    timestamp = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    
+    # 1. Human-readable text audit entry
+    text_entry = (
+        f"[{timestamp}] {emoji} [{display_name.upper()}] ({message_type.upper()}):\n"
+        f"{content}\n"
+    )
+    if data:
+        formatted_data = json.dumps(data, indent=2, default=str)
+        text_entry += f"--- Attached Payload ---\n{formatted_data}\n"
+    text_entry += "-" * 75 + "\n"
+    
+    try:
+        with open(AGENT_TEXT_LOG_PATH, "a", encoding="utf-8") as f:
+            f.write(text_entry)
+    except Exception:
+        pass
+
+    # 2. Structured JSONL entry
+    json_entry = {
+        "timestamp": timestamp,
+        "agent_name": agent_name,
+        "display_name": display_name,
+        "emoji": emoji,
+        "message_type": message_type,
+        "content": content,
+        "data": data
+    }
+    try:
+        with open(AGENT_JSONL_PATH, "a", encoding="utf-8") as f:
+            f.write(json.dumps(json_entry, default=str) + "\n")
+    except Exception:
+        pass
+
+
+def log_agent_session_summary(
+    surgeon_prompt: str,
+    attempts: int,
+    verdict: str,
+    messages_count: int,
+    final_design: Optional[Dict[str, Any]] = None
+) -> None:
+    """Logs the final high-level agent session sign-off."""
+    timestamp = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    summary_entry = f"""
+================================================================================
+🤖 MULTI-AGENT DELIBERATION SESSION COMPLETED
+Timestamp:        {timestamp}
+Surgeon Prompt:   "{surgeon_prompt}"
+Attempts Taken:   {attempts}
+Final Verdict:    {verdict}
+Total Messages:   {messages_count}
+================================================================================
+"""
+    try:
+        with open(AGENT_TEXT_LOG_PATH, "a", encoding="utf-8") as f:
+            f.write(summary_entry)
+    except Exception:
+        pass

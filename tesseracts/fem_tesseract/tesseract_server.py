@@ -4,6 +4,7 @@ import logging
 
 # Ensure project root is in python path
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '../../')))
+import src.fem.petsc_compat
 
 # Suppress jax_fem logging in the server process
 logging.getLogger("jax_fem").setLevel(logging.ERROR)
@@ -23,4 +24,6 @@ import tesseracts.fem_tesseract.tesseract_api as api
 app = create_rest_api(api)
 
 if __name__ == "__main__":
-    uvicorn.run(app, host="127.0.0.1", port=8000)
+    host = os.environ.get("HOST", "0.0.0.0")
+    port = int(os.environ.get("PORT", "8000"))
+    uvicorn.run(app, host=host, port=port)

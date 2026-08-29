@@ -178,10 +178,26 @@ def create_gradient_tracking_fig(grad_history: Dict[str, List[float]]) -> go.Fig
         "∂L/∂L_bridge": "#e879f9",
         "∂L/∂d_cell": "#2dd4bf",
         "∂L/∂r_fillet": "#fb7185",
+        # ASCII equivalents
+        "dL/dtau_p_anc": "#60a5fa",
+        "dL/dtau_p_tra": "#818cf8",
+        "dL/dtau_bridge": "#c084fc",
+        "dL/dtau_d_tra": "#f472b6",
+        "dL/dtau_d_anc": "#38bdf8",
+        "dL/dsigma_blend": "#fbbf24",
+        "dL/dt_top": "#34d399",
+        "dL/dt_bottom": "#10b981",
+        "dL/ds_pitch": "#f97316",
+        "dL/dL_bridge": "#e879f9",
+        "dL/dd_cell": "#2dd4bf",
+        "dL/dr_fillet": "#fb7185",
         # Backward compatibility aliases
         "∂L/∂t_skin": "#34d399",
         "∂L/∂τ_prox": "#60a5fa",
-        "∂L/∂τ_dist": "#38bdf8"
+        "∂L/∂τ_dist": "#38bdf8",
+        "dL/dt_skin": "#34d399",
+        "dL/dtau_prox": "#60a5fa",
+        "dL/dtau_dist": "#38bdf8"
     }
 
     for key, values in grad_history.items():

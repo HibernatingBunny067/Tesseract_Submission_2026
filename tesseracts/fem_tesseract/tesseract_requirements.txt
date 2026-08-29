@@ -5,10 +5,12 @@ pydantic
 jax
 jaxlib
 jax-fem
-gmsh
+fenics-basix
+pyfiglet
 meshio
-petsc
-petsc4py
-tesseract-core>=1.11.0
+tesseract-core[runtime]>=1.11.0
 tesseract-jax>=0.4.1
 optax
+fsspec
+uvicorn
+fastapi
