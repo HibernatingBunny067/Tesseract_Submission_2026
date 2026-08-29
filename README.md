@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="images/demo.png" alt="Tesseract Differentiable Biomechanics Banner" width="100%" style="border-radius: 8px;" />
+  <img src="images/demo_latest.png" alt="Tesseract Differentiable Biomechanics Banner" width="100%" style="border-radius: 8px;" />
 </p>
 
 # 🦴 Tesseract Differentiable Biomechanics
