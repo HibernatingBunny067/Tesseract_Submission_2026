@@ -188,6 +188,22 @@ tesseract serve geometry_tesseract:latest --port 8001 &
 streamlit run app.py
 ```
 
+### Option C: Local Python Virtual Environment
+
+If you prefer to run everything natively without Docker, you can set up a local virtual environment and use the included start script:
+
+```bash
+# 1. Create and activate a Python 3.12 virtual environment
+python3.12 -m venv .venv
+source .venv/bin/activate
+
+# 2. Install dependencies
+pip install -r REQUIREMENTS.txt
+
+# 3. Run the complete stack (Tesseract servers + Streamlit)
+./run
+```
+
 ### Running the Test Suite
 To verify the agent system, FFD morphing, and solvers:
 ```bash
