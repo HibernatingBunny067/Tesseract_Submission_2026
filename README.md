@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="images/demo.png" alt="Tesseract Differentiable Biomechanics Banner" width="100%" style="border-radius: 8px; border: 1px solid rgba(255, 255, 255, 0.1);">
+  <img src="images/demo.png" alt="Tesseract Differentiable Biomechanics Banner" width="100%" style="border-radius: 8px;" />
 </p>
 
 # 🦴 Tesseract Differentiable Biomechanics
@@ -19,49 +19,14 @@
 ## 📑 Table of Contents
 
 1. [Executive Summary & The Biomechanical Dilemma](#1-executive-summary--the-biomechanical-dilemma)
-   * [1.1 Clinical Motivation](#11-clinical-motivation)
-   * [1.2 Perren's Strain Theory & Wolff's Law](#12-perrens-strain-theory--wolffs-law)
-   * [1.3 The Proposed Solution: Functionally Graded TPMS Plates](#13-the-proposed-solution-functionally-graded-tpms-plates)
 2. [Why Differentiable Simulation Needs Tesseract](#2-why-differentiable-simulation-needs-tesseract)
-   * [2.1 Heterogeneous Backend Decoupling](#21-heterogeneous-backend-decoupling)
-   * [2.2 Cross-Container Reverse-Mode Automatic Differentiation](#22-cross-container-reverse-mode-automatic-differentiation)
-   * [2.3 Dual Microservices Architecture (Ports 8000 & 8001)](#23-dual-microservices-architecture-ports-8000--8001)
 3. [End-to-End System Architecture](#3-end-to-end-system-architecture)
-   * [3.1 Multi-Tier Architecture Diagram](#31-multi-tier-architecture-diagram)
-   * [3.2 Multi-Grid Discretization & Mesh Metrics Table](#32-multi-grid-discretization--mesh-metrics-table)
 4. [Multi-Agent LangGraph AI Orchestration Engine](#4-multi-agent-langgraph-ai-orchestration-engine)
-   * [4.1 Specialist Agent Personas](#41-specialist-agent-personas)
-   * [4.2 Autonomous Closed-Loop Self-Correction State Machine](#42-autonomous-closed-loop-self-correction-state-machine)
-   * [4.3 Tri-Tier Robust LLM Fallback Mechanism (Groq → Gemini → Regex NLP)](#43-tri-tier-robust-llm-fallback-mechanism-groq--gemini--regex-nlp)
 5. [Two-Stage Multi-Scale Mathematical Optimization Pipeline](#5-two-stage-multi-scale-mathematical-optimization-pipeline)
-   * [5.1 Stage 1: Macro CAD Curvature Morphing (PyGeM FFD)](#51-stage-1-macro-cad-curvature-morphing-pygem-ffd)
-   * [5.2 Stage 2: Micro-Lattice Level-Set Inverse Design (JAX-FEM Adjoint)](#52-stage-2-micro-lattice-level-set-inverse-design-jax-fem-adjoint)
-   * [5.3 Minimal Surface Metamaterial Topology Architectures](#53-minimal-surface-metamaterial-topology-architectures)
-   * [5.4 Continuous Gaussian Spatial Density Blending](#54-continuous-gaussian-spatial-density-blending)
-   * [5.5 Gibson-Ashby Homogenization Mechanics](#55-gibson-ashby-homogenization-mechanics)
 6. [Automated In-Silico Verification & Regulatory Testing Suite](#6-automated-in-silico-verification--regulatory-testing-suite)
-   * [6.1 ASTM F382 4-Point Bending & Stiffness Compliance](#61-astm-f382-4-point-bending--stiffness-compliance)
-   * [6.2 Interfragmentary Micro-Motion Window Test](#62-interfragmentary-micro-motion-window-test)
-   * [6.3 Wolff's Law Cortical Load Sharing Ratio](#63-wolffs-law-cortical-load-sharing-ratio)
-   * [6.4 Peak Von Mises Stress & Factor of Safety Distribution](#64-peak-von-mises-stress--factor-of-safety-distribution)
-   * [6.5 ISO 7206 Cyclic Fatigue Endurance Ratio](#65-iso-7206-cyclic-fatigue-endurance-ratio)
 7. [User Interface & Real-Time Engineering Dashboard](#7-user-interface--real-time-engineering-dashboard)
-   * [7.1 Real-Time Telemetry & Plotly Synchronization](#71-real-time-telemetry--plotly-synchronization)
-   * [7.2 Isolated 3D Implant Surface, Von Mises & FoS Viewports](#72-isolated-3d-implant-surface-von-mises--fos-viewports)
-   * [7.3 Conformal Additive Manufacturing STL Export](#73-conformal-additive-manufacturing-stl-export)
 8. [Quick Start & Deployment Guide](#8-quick-start--deployment-guide)
-   * [8.1 Prerequisites](#81-prerequisites)
-   * [8.2 Environment & API Key Setup](#82-environment--api-key-setup)
-   * [8.3 Option A: Docker Compose Deployment (Recommended)](#83-option-a-docker-compose-deployment-recommended)
-   * [8.4 Option B: Native Tesseract CLI Workflow](#84-option-b-native-tesseract-cli-workflow)
-   * [8.5 Option C: Local Virtual Environment Execution](#85-option-c-local-virtual-environment-execution)
-   * [8.6 Automated Test Suite Execution](#86-automated-test-suite-execution)
 9. [Clinical Case Studies & Experimental Benchmarks](#9-clinical-case-studies--experimental-benchmarks)
-   * [9.1 Case 1: Callus Stimulation (Default Diaphyseal Fracture)](#91-case-1-callus-stimulation-default-diaphyseal-fracture)
-   * [9.2 Case 2: Elderly Osteoporotic Patient](#92-case-2-elderly-osteoporotic-patient)
-   * [9.3 Case 3: Young Athlete High-Impact Trauma](#93-case-3-young-athlete-high-impact-trauma)
-   * [9.4 Case 4: Cost-Effective Fixation (316L Stainless Steel)](#94-case-4-cost-effective-fixation-316l-stainless-steel)
-   * [9.5 Optimization Convergence Benchmarks Table](#95-optimization-convergence-benchmarks-table)
 10. [Repository Directory Map](#10-repository-directory-map)
 11. [Future Roadmap & Translational Horizons](#11-future-roadmap--translational-horizons)
 12. [Research Team & Institutional Acknowledgments](#12-research-team--institutional-acknowledgments)
@@ -76,48 +41,48 @@ Diaphyseal femur fractures are among the most debilitating orthopaedic trauma in
 
 ```text
        CONVENTIONAL SOLID FIXATION: STIFFNESS MISMATCH & CLINICAL COMPLICATIONS
-  ┌────────────────────────────────────────────────────────────────────────────┐
-  │  Solid Titanium Plate (E = 110 GPa)                                        │
-  │ 🔩 Screw 1     🔩 Screw 2           [EXCESS RIGIDITY]     🔩 Screw 3     🔩 Screw 4 │
-  └──────────────────────────────────────┬─────────────────────────────────────┘
-                                         │
-               ┌───────────────────────┐ │ ┌───────────────────────┐
-               │ PROXIMAL FEMUR CORTEX │ ▼ │ DISTAL FEMUR CORTEX   │
-               │ (E = 18 GPa)          │▒▒▒│ (E = 18 GPa)          │
-               └───────────────────────┘▒▒▒└───────────────────────┘
+  +----------------------------------------------------------------------------+
+  |  Solid Titanium Plate (E = 110 GPa)                                        |
+  |  [Screw 1]     [Screw 2]            [EXCESS RIGIDITY]     [Screw 3]    [Screw 4]  |
+  +--------------------------------------┬-------------------------------------+
+                                         |
+               +-----------------------+ | +-----------------------+
+               | PROXIMAL FEMUR CORTEX | v | DISTAL FEMUR CORTEX   |
+               | (E = 18 GPa)          |:::| (E = 18 GPa)          |
+               +-----------------------+:::+-----------------------+
                                 (2.0 mm Fracture Gap: Strain < 2% -> Non-Union)
 ```
 
 1. **Fixation Rigidity & Non-Union:** If the fixation construct is overly stiff, interfragmentary strain is suppressed below the biological activation threshold ($< 2\%$, corresponding to micro-motion $< 0.08\text{ mm}$). Osteoblasts receive no mechanical stimulus, leading to delayed union, fibrous non-union, and hardware failure.
 2. **Stress Shielding & Cortical Osteopenia:** Because solid metal is $6\times$ stiffer than cortical bone ($E = 18\text{ GPa}$), it carries $> 90\%$ of the physiological ambulatory gait load ($750\text{ N}$). According to **Wolff's Law**, the unloaded bone undergoes progressive bone resorption and localized osteoporosis under the plate. When the implant is surgically removed 12–18 months later, the thinned cortex frequently suffers catastrophic secondary refracture.
 
----
-
 ### 1.2 Perren's Strain Theory & Wolff's Law
 Modern biomechanical osteosynthesis relies on two governing physiological principles:
 
 * **Perren's Interfragmentary Strain Theory:** Successful secondary fracture healing through periosteal callus formation requires cyclic axial micro-motion $\delta$ across the fracture gap within a narrow physiological target window:
-  $$0.15\text{ mm} \le \delta \le 0.35\text{ mm} \quad (\varepsilon_{\text{gap}} = 7.5\% - 17.5\% \text{ for a } 2.0\text{ mm gap})$$
-* **Wolff's Law of Bone Remodeling:** Living bone adapts its internal trabecular and cortical architecture in response to mechanical stresses. Fixation devices must transfer at least **$55\%$ of the physiological load** through the cortical bone column to preserve bone density.
 
----
+$$
+0.15\text{ mm} \le \delta \le 0.35\text{ mm} \quad (\varepsilon_{\text{gap}} = 7.5\% - 17.5\% \text{ for a } 2.0\text{ mm gap})
+$$
+
+* **Wolff's Law of Bone Remodeling:** Living bone adapts its internal trabecular and cortical architecture in response to mechanical stresses. Fixation devices must transfer at least **$55\%$ of the physiological load** through the cortical bone column to preserve bone density.
 
 ### 1.3 The Proposed Solution: Functionally Graded TPMS Plates
 This platform autonomously synthesizes a **Functionally Graded Metamaterial Bone Plate** featuring a continuous 5-zone Triply Periodic Minimal Surface (TPMS) porous core sandwiched between solid cortical and muscle-facing titanium skins:
 
 ```text
                   INVERSELY DESIGNED 5-ZONE FUNCTIONALLY GRADED BONE PLATE
- ┌────────────────────────────────────────────────────────────────────────────────────────┐
- │  Top Solid Titanium Skin (0.50 mm)                                                     │
- ├────────────────────────────────────────────────────────────────────────────────────────┤
- │  ZONE 1        │ ZONE 2        │ ZONE 3        │ ZONE 4        │ ZONE 5        │
- │  Prox Anchor   │ Prox Grad     │ Bridge Gap    │ Dist Grad     │ Dist Anchor   │
- │  Porosity: 58% │ Porosity: 64% │ Porosity: 78% │ Porosity: 64% │ Porosity: 58% │
- │  E_eff: 22 GPa │ E_eff: 17 GPa │ E_eff: 8 GPa  │ E_eff: 17 GPa │ E_eff: 22 GPa │
- ├────────────────────────────────────────────────────────────────────────────────────────┤
- │  Bottom Solid Titanium Skin (0.50 mm)                                                  │
- └────────────────────────────────────────────────────────────────────────────────────────┘
-            ▲                                      ▲                                      ▲
+ +----------------------------------------------------------------------------------------+
+ |  Top Solid Titanium Skin (0.50 mm)                                                     |
+ +----------------------------------------------------------------------------------------+
+ |  ZONE 1        | ZONE 2        | ZONE 3        | ZONE 4        | ZONE 5        |
+ |  Prox Anchor   | Prox Grad     | Bridge Gap    | Dist Grad     | Dist Anchor   |
+ |  Porosity: 58% | Porosity: 64% | Porosity: 78% | Porosity: 64% | Porosity: 58% |
+ |  E_eff: 22 GPa | E_eff: 17 GPa | E_eff: 8 GPa  | E_eff: 17 GPa | E_eff: 22 GPa |
+ +----------------------------------------------------------------------------------------+
+ |  Bottom Solid Titanium Skin (0.50 mm)                                                  |
+ +----------------------------------------------------------------------------------------+
+            ^                                      ^                                      ^
      Rigid Screw Anchor                    Compliant Flexural Bridge              Rigid Screw Anchor
    (High Pullout Strength)                 (Target 0.20 mm Callus Motion)       (High Pullout Strength)
 ```
@@ -130,18 +95,18 @@ Integrating non-linear structural continuum physics with analytical level-set im
 
 ```text
 Traditional Isolated Stack:                 Tesseract Differentiable Composition:
-┌─────────────────────────┐                 ┌──────────────────────────────────────────┐
-│  Compiled C++ FEM       │                 │              TESSERACT CORE              │
-│  (Gmsh + SuperLU)       │                 │                                          │
-└────────────┬────────────┘                 │  ┌──────────────────┐  ┌───────────────┐ │
-             │ [Optimization Barrier]       │  │ Tesseract 1: FEM │◄►│ Tesseract 2:  │ │
-             ▼                              │  │ (JAX-FEM+PETSc)  │  │ Geometry SDF  │ │
-┌─────────────────────────┐                 │  └────────┬─────────┘  └───────┬───────┘ │
-│  Level-Set Geometry     │                 │           └────────┬───────────┘         │
-│  (Python Marching Cubes)│                 │                    ▼                     │
-└─────────────────────────┘                 │   Continuous Reverse-Mode Adjoint (VJP)  │
-  No Network Adjoint Gradients              │             ∂L/∂θ over REST              │
-                                            └──────────────────────────────────────────┘
++-------------------------+                 +------------------------------------------+
+|  Compiled C++ FEM       |                 |              TESSERACT CORE              |
+|  (Gmsh + SuperLU)       |                 |                                          |
++------------┬------------+                 |  +------------------+  +---------------+ |
+             | [Optimization Barrier]       |  | Tesseract 1: FEM |<-| Tesseract 2:  | |
+             v                              |  | (JAX-FEM+PETSc)  |  | Geometry SDF  | |
++-------------------------+                 |  +--------┬---------+  +-------┬-------+ |
+|  Level-Set Geometry     |                 |           +--------┬-----------+         |
+|  (Python Marching Cubes)|                 |                    v                     |
++-------------------------+                 |   Continuous Reverse-Mode Adjoint (VJP)  |
+  No Network Adjoint Gradients              |             dL/dtheta over REST          |
+                                            +------------------------------------------+
 ```
 
 ### 2.1 Heterogeneous Backend Decoupling
@@ -167,37 +132,37 @@ $$
 ### 3.1 Multi-Tier Architecture Diagram
 
 ```text
-┌────────────────────────────────────────────────────────────────────────────────────────┐
-│ TIER 1: MULTI-AGENT STATE GRAPH ORCHESTRATION (LangGraph State Machine)               │
-│                                                                                        │
-│   🧑⚕️ Clinical Interpreter      🔬 Materials Advisor        ⚙️ Optimization Controller   │
-│    • Perren's Strain Target    • Alloy Selection (Ti/SS)   • 12-DOF WSD Adam Loop      │
-│                                                                                        │
-│   📋 Validation Auditor (Autonomous Closed-Loop Self-Correction State Machine)         │
-└───────────────────────────────────────────┬────────────────────────────────────────────┘
-                                            │
-                                            ▼
-┌────────────────────────────────────────────────────────────────────────────────────────┐
-│ TIER 2: DUAL-STAGE MULTI-SCALE OPTIMIZATION PIPELINE                                   │
-│                                                                                        │
-│  STAGE 1: Fast Macro CAD Shape Morphing (PyGeM FFD on 30k DOF Base Mesh)               │
-│   • 5x4x4 Bernstein Free-Form Deformation Control Grid (morphs plate curvature to bone)│
-│   • Finite-difference Adam gradient steps on 29,571 DOF base mesh                      │
-│                                                                                        │
-│  STAGE 2: Differentiable JAX-FEM Lattice Synthesis (Remeshed 63k DOF Refined Mesh)     │
-│   • Morph coordinates transferred to 2.14x refined mesh (21,051 nodes, 63,153 DOFs)   │
-│   • Tesseract 1 (Port 8000): JAX-FEM + SuperLU (13,190 TET10 Cells, 63,153 DOFs)      │
-│   • Tesseract 2 (Port 8001): Analytical Level-Set SDF & Porosity Engine                │
-│   • ⚡ Direct Mode: One-click option to skip Stage 1 and run directly on refined mesh  │
-└───────────────────────────────────────────┬────────────────────────────────────────────┘
-                                            │
-                                            ▼
-┌────────────────────────────────────────────────────────────────────────────────────────┐
-│ TIER 3: IN-SILICO VERIFICATION, 3D VISUALIZATION & ADDITIVE MANUFACTURING EXPORT       │
-│  • Automated In-Silico Battery: ASTM F382 Micro-Motion, Static FoS, ISO 7206 Fatigue   │
-│  • Interactive 3D Plotly Renders: Metamaterial Porosity, Von Mises Stress, FoS Field   │
-│  • Additive Manufacturing Export: Conformal 3D-Printable Binary STL Export Engine      │
-└────────────────────────────────────────────────────────────────────────────────────────┘
++----------------------------------------------------------------------------------------+
+| TIER 1: MULTI-AGENT STATE GRAPH ORCHESTRATION (LangGraph State Machine)               |
+|                                                                                        |
+|   [*] Clinical Interpreter      [*] Materials Advisor       [*] Optimization Control   |
+|    - Perren's Strain Target      - Alloy Selection (Ti/SS)   - 12-DOF WSD Adam Loop    |
+|                                                                                        |
+|   [*] Validation Auditor (Autonomous Closed-Loop Self-Correction State Machine)        |
++-------------------------------------------┬--------------------------------------------+
+                                            |
+                                            v
++----------------------------------------------------------------------------------------+
+| TIER 2: DUAL-STAGE MULTI-SCALE OPTIMIZATION PIPELINE                                   |
+|                                                                                        |
+|  STAGE 1: Fast Macro CAD Shape Morphing (PyGeM FFD on 30k DOF Base Mesh)               |
+|   - 5x4x4 Bernstein Free-Form Deformation Control Grid (morphs plate curvature to bone)|
+|   - Finite-difference Adam gradient steps on 29,571 DOF base mesh                      |
+|                                                                                        |
+|  STAGE 2: Differentiable JAX-FEM Lattice Synthesis (Remeshed 63k DOF Refined Mesh)     |
+|   - Morph coordinates transferred to 2.14x refined mesh (21,051 nodes, 63,153 DOFs)   |
+|   - Tesseract 1 (Port 8000): JAX-FEM + SuperLU (13,190 TET10 Cells, 63,153 DOFs)      |
+|   - Tesseract 2 (Port 8001): Analytical Level-Set SDF & Porosity Engine                |
+|   - Direct Mode: One-click option to skip Stage 1 and run directly on refined mesh     |
++-------------------------------------------┬--------------------------------------------+
+                                            |
+                                            v
++----------------------------------------------------------------------------------------+
+| TIER 3: IN-SILICO VERIFICATION, 3D VISUALIZATION & ADDITIVE MANUFACTURING EXPORT       |
+|  - Automated In-Silico Battery: ASTM F382 Micro-Motion, Static FoS, ISO 7206 Fatigue   |
+|  - Interactive 3D Plotly Renders: Metamaterial Porosity, Von Mises Stress, FoS Field   |
+|  - Additive Manufacturing Export: Conformal 3D-Printable Binary STL Export Engine      |
++----------------------------------------------------------------------------------------+
 ```
 
 ### 3.2 Multi-Grid Discretization & Mesh Metrics Table
@@ -225,31 +190,31 @@ The clinical reasoning layer is powered by a **4-agent LangGraph state machine**
 ```text
                   LANGGRAPH STATE MACHINE & RECURSIVE ROUTING TOPOLOGY
                   
-  Surgeon Prompt ──► [ 🧑⚕️ Clinical Interpreter ]
-                               │
-                               ▼
-                     [ 🔬 Materials Advisor ]
-                               │
-                               ▼
-              ┌────► [ ⚙️ Optimization Controller ] ◄───────┐
-              │                │ (12-DOF JAX-FEM Loop)      │
-              │                ▼                            │
-              │      [ 📋 Validation Auditor ]              │
-              │                │                            │
-              │                ▼                            │
-              │         Passes In-Silico?                   │
-              │         /             \                     │
-    Adjusted  │     NO (Retry)     YES (Finalize)           │ Parameter
-    Weights   │       /                 \                   │ Tightening
-              └──────┴                   ▼                  │
-                                [ 🖨️ Binary STL Export ] ───┘
+  Surgeon Prompt ---> [ Clinical Interpreter ]
+                              |
+                              v
+                     [ Materials Advisor ]
+                              |
+                              v
+              +-----> [ Optimization Controller ] <-------+
+              |                | (12-DOF JAX-FEM Loop)    |
+              |                v                          |
+              |      [ Validation Auditor ]               |
+              |                |                          |
+              |                v                          |
+              |         Passes In-Silico?                 |
+              |         /             \                   |
+    Adjusted  |     NO (Retry)     YES (Finalize)         | Parameter
+    Weights   |       /                 \                 | Tightening
+              +------┴                   v                |
+                                [ Binary STL Export ] ----+
 ```
 
 ### 4.1 Specialist Agent Personas
-1. **🧑⚕️ Clinical Interpreter Node:** Ingests clinical prompts and extracts patient age, bone mineral density status, fracture gap geometry, target interfragmentary displacement $\delta_{\text{target}}$ ($0.15 - 0.35\text{ mm}$), and clinical rationale.
-2. **🔬 Materials Advisor Node:** Selects optimal biomaterial alloy (`Ti-6Al-4V Grade 5 Titanium` vs `316L Stainless Steel`), setting the Gibson-Ashby modulus exponent $\gamma$ ($1.60$ for Ti, $1.55$ for SS), yield strength $\sigma_{\text{yield}}$ ($880\text{ MPa}$ vs $290\text{ MPa}$), and minimum Factor of Safety targets.
-3. **⚙️ Optimization Controller Node:** Configures the 12-DOF Warmup-Stable-Decay (WSD) Adam optimizer, streaming live telemetry (`loss`, `frac_disp`, `porosity`, `gradients`) to the UI via thread-safe callbacks.
-4. **📋 Validation Auditor Node:** Executes the automated 4-point ASTM F382 and ISO 7206 virtual testing battery, routing execution for autonomous self-correction if metrics deviate from regulatory bounds.
+1. **Clinical Interpreter Node:** Ingests clinical prompts and extracts patient age, bone mineral density status, fracture gap geometry, target interfragmentary displacement $\delta_{\text{target}}$ ($0.15 - 0.35\text{ mm}$), and clinical rationale.
+2. **Materials Advisor Node:** Selects optimal biomaterial alloy (`Ti-6Al-4V Grade 5 Titanium` vs `316L Stainless Steel`), setting the Gibson-Ashby modulus exponent $\gamma$ ($1.60$ for Ti, $1.55$ for SS), yield strength $\sigma_{\text{yield}}$ ($880\text{ MPa}$ vs $290\text{ MPa}$), and minimum Factor of Safety targets.
+3. **Optimization Controller Node:** Configures the 12-DOF Warmup-Stable-Decay (WSD) Adam optimizer, streaming live telemetry (`loss`, `frac_disp`, `porosity`, `gradients`) to the UI via thread-safe callbacks.
+4. **Validation Auditor Node:** Executes the automated 4-point ASTM F382 and ISO 7206 virtual testing battery, routing execution for autonomous self-correction if metrics deviate from regulatory bounds.
 
 ### 4.2 Autonomous Closed-Loop Self-Correction State Machine
 If the Validation Auditor detects micro-motion out-of-bounds or an insufficient Factor of Safety ($\text{FoS} < 1.50\times$), it executes autonomous parameter corrections:
@@ -262,15 +227,15 @@ To ensure **100% operational reliability** during hackathon judging and clinical
 
 ```text
   [ Surgeon Prompt ]
-          │
-          ▼
-  1. Groq Cloud Engine ───────────► (Success) ──► Parsed Design Request
-          │ (404/429/Timeout)
-          ▼
-  2. Google Gemini Engine ────────► (Success) ──► Parsed Design Request
-          │ (404/429/Timeout)
-          ▼
-  3. Local Biomechanical NLP ─────► (Guaranteed) ► Parsed Design Request (100% Offline)
+          |
+          v
+  1. Groq Cloud Engine -----------> (Success) --> Parsed Design Request
+          | (404/429/Timeout)
+          v
+  2. Google Gemini Engine --------> (Success) --> Parsed Design Request
+          | (404/429/Timeout)
+          v
+  3. Local Biomechanical NLP -----> (Guaranteed) -> Parsed Design Request (100% Offline)
 ```
 
 1. **Tier 1 — Groq High-Speed Cloud:** Evaluates `qwen/qwen3.8-27b` (primary), `qwen/qwen3.6-27b`, or `openai/gpt-oss-120b`.
@@ -288,15 +253,15 @@ Stage 1 adapts the plate's global sagittal and coronal curvature to the patient'
          5x4x4 BERNSTEIN FFD LATTICE EMBEDDED AROUND 3D BONE PLATE
          
               Y (Sagittal)
-              ▲
-              │      [●]───[●]───[●]───[●]───[●] ◄── Control Grid Slice 4
-              │      │     │     │     │     │
-              │      [●]───[●]───[●]───[●]───[●] ◄── Control Grid Slice 3 (Mid-Span ΔY, ΔZ)
-              │      │     │     │     │     │
-              │      [●]───[●]───[●]───[●]───[●] ◄── Control Grid Slice 2
-              │      │     │     │     │     │
-              │      [●]───[●]───[●]───[●]───[●] ◄── Control Grid Slice 1 (Anchors Fixed)
-              └───────────────────────────────────► X (Shaft Axis: 100 mm)
+              ^
+              |      [o]---[o]---[o]---[o]---[o] <-- Control Grid Slice 4
+              |      |     |     |     |     |
+              |      [o]---[o]---[o]---[o]---[o] <-- Control Grid Slice 3 (Mid-Span dY, dZ)
+              |      |     |     |     |     |
+              |      [o]---[o]---[o]---[o]---[o] <-- Control Grid Slice 2
+              |      |     |     |     |     |
+              |      [o]---[o]---[o]---[o]---[o] <-- Control Grid Slice 1 (Anchors Fixed)
+              +-----------------------------------> X (Shaft Axis: 100 mm)
 ```
 
 The mapping of any spatial point $X \in \mathbb{R}^3$ within the bounding box is governed by trivariate Bernstein polynomials:
@@ -372,7 +337,7 @@ The 3D microstructure is defined by implicit minimal surface level-set equations
 ---
 
 ### 5.4 Continuous Gaussian Spatial Density Blending
-To prevent notch stress concentrations at zone interfaces, the discrete 5-zone thresholds $\tau_1 \dots \tau_5$ are blended into a continuous, infinitely differentiable field $\tau(x)$:
+To prevent notch stress concentrations at zone interfaces, discrete thresholds $\tau_1 \dots \tau_5$ are blended into a continuous, infinitely differentiable field $\tau(x)$:
 
 $$
 \tau(x) = \frac{\sum_{i=1}^5 \tau_i \cdot w_i(x)}{\sum_{i=1}^5 w_i(x)}, \quad w_i(x) = \exp\left( -\left(\frac{x - x_i}{\sigma_{\text{blend}}}\right)^2 \right)
@@ -415,11 +380,11 @@ Before exporting any implant geometry for additive manufacturing, the platform a
 
 ### 7.1 Real-Time Telemetry & Plotly Synchronization
 The Streamlit dashboard (`app.py`) updates all 5 physical telemetry charts **live on every optimization iteration step** via thread-safe callbacks:
-1. 📉 **Objective Loss Tracking:** Displays overall multi-objective loss convergence.
-2. 🎯 **Micro-Motion Convergence:** Tracks interfragmentary displacement (mm) against target bounds.
-3. 🏷️ **ASTM Status Badge:** Real-time indicator (`PASS (ASTM)` vs `TIGHTENING`).
-4. 🧬 **5-Zone Porosity Evolution:** Tracks relative density across all 5 anatomical zones.
-5. 🔍 **Adjoint Sensitivities ($\partial \mathcal{L}/\partial \tau$):** Displays analytical sensitivity gradients across level-set parameters.
+1. **Objective Loss Tracking:** Displays overall multi-objective loss convergence.
+2. **Micro-Motion Convergence:** Tracks interfragmentary displacement (mm) against target bounds.
+3. **ASTM Status Badge:** Real-time indicator (`PASS (ASTM)` vs `TIGHTENING`).
+4. **5-Zone Porosity Evolution:** Tracks relative density across all 5 anatomical zones.
+5. **Adjoint Sensitivities ($\partial \mathcal{L}/\partial \tau$):** Displays analytical sensitivity gradients across level-set parameters.
 
 ---
 
@@ -548,47 +513,47 @@ python tests/test_agent_system.py
 
 ```text
 Tesseract_Submission_2026/
-├── app.py                         ◄── Streamlit interactive co-design dashboard
-├── run                            ◄── Native multi-service launch script
-├── run_docker.sh                  ◄── One-click Docker Compose launcher
-├── docker-compose.yml             ◄── 3-tier microservice container orchestration
-├── REQUIREMENTS.txt               ◄── Python package dependencies
+├── app.py                         <-- Streamlit interactive co-design dashboard
+├── run                            <-- Native multi-service launch script
+├── run_docker.sh                  <-- One-click Docker Compose launcher
+├── docker-compose.yml             <-- 3-tier microservice container orchestration
+├── REQUIREMENTS.txt               <-- Python package dependencies
 ├── src/
-│   ├── agent/                     ◄── LangGraph multi-agent state machine & prompts
-│   │   ├── agent.py               ◄── Top-level natural language prompt dispatch & NLP parser
-│   │   ├── graph.py               ◄── LangGraph state machine & streaming runner
-│   │   ├── nodes.py               ◄── Specialist agent nodes (Clinical, Materials, Opt, Audit)
-│   │   ├── state.py               ◄── TypedDict DesignState schema & audit logger
-│   │   ├── llm_provider.py        ◄── Groq, Gemini & local LLM abstraction layer
-│   │   ├── optimize.py            ◄── 12-DOF JAX-FEM adjoint optimization loop
-│   │   └── optimize_cad.py        ◄── Stage 1 PyGeM FFD shape optimization loop
-│   ├── geometry/                  ◄── Geometry generation & morphing
-│   │   ├── morph.py               ◄── PyGeM Free-Form Deformation (FFD) engine
-│   │   ├── plot_plotly.py         ◄── Plotly 3D mesh, stress & FoS visualizer
-│   │   └── stl_export.py          ◄── Conformal 3D binary STL manufacturing export
-│   ├── fem/                       ◄── Finite Element Physics & Validation
-│   │   ├── forward.py             ◄── JAX-FEM solver interface & problem rebuilder
-│   │   ├── problem.py             ◄── Tetrahedral elasticity tensor & Von Mises evaluator
-│   │   ├── validation.py          ◄── In-silico ASTM F382 & ISO 7206 verification battery
-│   │   └── data/                  ◄── Gmsh multi-grid FEA meshes (model, refined, morphed)
-│   └── ui/                        ◄── User interface styling & components
-│       ├── styles.py              ◄── Glassmorphic CSS design system
-│       └── components.py          ◄── Status badges, cards & layout helpers
-├── tesseracts/                    ◄── Tesseract Core microservices
-│   ├── fem_tesseract/             ◄── Containerized JAX-FEM + SuperLU solver (Port 8000)
-│   └── geometry_tesseract/        ◄── Containerized Level-Set SDF engine (Port 8001)
-├── logs/                          ◄── Clinical audit trails & optimization telemetry
-└── tests/                         ◄── End-to-end integration and agent unit tests
+│   ├── agent/                     <-- LangGraph multi-agent state machine & prompts
+│   │   ├── agent.py               <-- Top-level prompt dispatch & NLP parser
+│   │   ├── graph.py               <-- LangGraph state machine & streaming runner
+│   │   ├── nodes.py               <-- Specialist agent nodes (Clinical, Materials, Opt, Audit)
+│   │   ├── state.py               <-- TypedDict DesignState schema & audit logger
+│   │   ├── llm_provider.py        <-- Groq, Gemini & local LLM abstraction layer
+│   │   ├── optimize.py            <-- 12-DOF JAX-FEM adjoint optimization loop
+│   │   └── optimize_cad.py        <-- Stage 1 PyGeM FFD shape optimization loop
+│   ├── geometry/                  <-- Geometry generation & morphing
+│   │   ├── morph.py               <-- PyGeM Free-Form Deformation (FFD) engine
+│   │   ├── plot_plotly.py         <-- Plotly 3D mesh, stress & FoS visualizer
+│   │   └── stl_export.py          <-- Conformal 3D binary STL manufacturing export
+│   ├── fem/                       <-- Finite Element Physics & Validation
+│   │   ├── forward.py             <-- JAX-FEM solver interface & problem rebuilder
+│   │   ├── problem.py             <-- Tetrahedral elasticity tensor & Von Mises evaluator
+│   │   ├── validation.py          <-- In-silico ASTM F382 & ISO 7206 verification battery
+│   │   └── data/                  <-- Gmsh multi-grid FEA meshes (model, refined, morphed)
+│   └── ui/                        <-- User interface styling & components
+│       ├── styles.py              <-- Glassmorphic CSS design system
+│       └── components.py          <-- Status badges, cards & layout helpers
+├── tesseracts/                    <-- Tesseract Core microservices
+│   ├── fem_tesseract/             <-- Containerized JAX-FEM + SuperLU solver (Port 8000)
+│   └── geometry_tesseract/        <-- Containerized Level-Set SDF engine (Port 8001)
+├── logs/                          <-- Clinical audit trails & optimization telemetry
+└── tests/                         <-- End-to-end integration and agent unit tests
 ```
 
 ---
 
 ## 11. Future Roadmap & Translational Horizons
 
-* 🏥 **Direct DICOM / CT Automated Segmentation:** Direct ingestion of clinical CT/MRI DICOM scans via 3D U-Net to autonomously reconstruct patient-specific femoral curvature and fracture planes.
-* 🧪 **Multi-Material Additive Manufacturing:** Continuous gradient transitions from biocompatible PEEK cores to titanium skins for ultra-low flexural rigidity without fatigue degradation.
-* 🦾 **In-Vivo Telemetric Sensor Integration:** Embedding MEMS strain gauges within the central TPMS bridge cell to stream real-time healing data to the surgeon's mobile dashboard during post-operative rehabilitation.
-* ⚡ **GPU-Accelerated Level-Set Meshing:** Moving 3D Marching Cubes and Voronoi clipping directly into JAX CUDA kernels for sub-second binary STL generation.
+* **Direct DICOM / CT Automated Segmentation:** Direct ingestion of clinical CT/MRI DICOM scans via 3D U-Net to autonomously reconstruct patient-specific femoral curvature and fracture planes.
+* **Multi-Material Additive Manufacturing:** Continuous gradient transitions from biocompatible PEEK cores to titanium skins for ultra-low flexural rigidity without fatigue degradation.
+* **In-Vivo Telemetric Sensor Integration:** Embedding MEMS strain gauges within the central TPMS bridge cell to stream real-time healing data to the surgeon's mobile dashboard during post-operative rehabilitation.
+* **GPU-Accelerated Level-Set Meshing:** Moving 3D Marching Cubes and Voronoi clipping directly into JAX CUDA kernels for sub-second binary STL generation.
 
 ---
 
