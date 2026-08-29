@@ -282,8 +282,10 @@ $$
 In Stage 2, the adjoint solver optimizes the full 12-dimensional parameter vector:
 
 $$
-\theta = \left[ d_{\text{cell}}, \tau_{\text{p\_anc}}, \tau_{\text{p\_tra}}, \tau_{\text{bridge}}, \tau_{\text{d\_tra}}, \tau_{\text{d\_anc}}, \sigma_{\text{blend}}, t_{\text{top}}, t_{\text{bot}}, s_{\text{pitch}}, L_{\text{bridge}}, r_{\text{fillet}} \right]
+\theta = \left[ d_{\text{cell}}, \tau_1, \tau_2, \tau_3, \tau_4, \tau_5, \sigma_{\text{blend}}, t_{\text{top}}, t_{\text{bot}}, s_{\text{pitch}}, L_{\text{bridge}}, r_{\text{fillet}} \right]
 $$
+
+where $\tau_1 \dots \tau_5$ denote the 5-zone level-set thresholds ($\tau_{\text{p-anc}}, \tau_{\text{p-tra}}, \tau_{\text{bridge}}, \tau_{\text{d-tra}}, \tau_{\text{d-anc}}$).
 
 The composite multi-objective loss function is formulated as:
 
@@ -292,47 +294,54 @@ $$
 $$
 
 #### Mathematical Component Definitions:
-1. **Micro-Motion Target Loss:**
-   $$
-   \mathcal{L}_{\text{motion}} = 2.0 \cdot \left( 22.0 \cdot \frac{\delta_{\text{achieved}}(\theta) - \delta_{\text{target}}}{\delta_{\text{target}}} \right)^2
-   $$
-2. **Global Compliance Loss (Strain Energy):**
-   $$
-   \mathcal{C}(u) = \frac{1}{2} u^T K(\theta) u = \frac{1}{2} \int_{\Omega} \varepsilon(u) : \mathbb{C}(\theta) : \varepsilon(u) \, d\Omega
-   $$
-3. **Mass Fraction Penalty:**
-   $$
-   \mathcal{L}_{\text{mass}} = 10.0 \cdot \text{ReLU}\left(\frac{\text{Mass}(\theta)}{\text{Mass}_{\text{solid}}} - \text{MaxMass}\right)^2
-   $$
-4. **ASTM Factor of Safety Barrier:**
-   $$
-   \mathcal{B}_{\text{FoS}} = 75.0 \cdot \text{ReLU}\left(1.75 - \frac{\sigma_{\text{yield}}}{\sigma_{\text{peak}}(\theta)}\right)^2
-   $$
-5. **Manufacturing Geometric Barrier:**
-   $$
-   \mathcal{B}_{\text{geom}} = 50.0 \cdot \left( \text{ReLU}(0.35\text{mm} - t_{\text{top}})^2 + \text{ReLU}(0.35\text{mm} - t_{\text{bot}})^2 \right)
-   $$
+
+* **Micro-Motion Target Loss:**
+$$
+\mathcal{L}_{\text{motion}} = 2.0 \cdot \left( 22.0 \cdot \frac{\delta_{\text{achieved}}(\theta) - \delta_{\text{target}}}{\delta_{\text{target}}} \right)^2
+$$
+
+* **Global Compliance Loss (Strain Energy):**
+$$
+\mathcal{C}(u) = \frac{1}{2} u^T K(\theta) u = \frac{1}{2} \int_{\Omega} \varepsilon(u) : \mathbb{C}(\theta) : \varepsilon(u) \, d\Omega
+$$
+
+* **Mass Fraction Penalty:**
+$$
+\mathcal{L}_{\text{mass}} = 10.0 \cdot \text{ReLU}\left(\frac{\text{Mass}(\theta)}{\text{Mass}_{\text{solid}}} - \text{MaxMass}\right)^2
+$$
+
+* **ASTM Factor of Safety Barrier:**
+$$
+\mathcal{B}_{\text{FoS}} = 75.0 \cdot \text{ReLU}\left(1.75 - \frac{\sigma_{\text{yield}}}{\sigma_{\text{peak}}(\theta)}\right)^2
+$$
+
+* **Manufacturing Geometric Barrier:**
+$$
+\mathcal{B}_{\text{geom}} = 50.0 \cdot \left( \text{ReLU}(0.35\text{ mm} - t_{\text{top}})^2 + \text{ReLU}(0.35\text{ mm} - t_{\text{bot}})^2 \right)
+$$
 
 ---
 
 ### 5.3 Minimal Surface Metamaterial Topology Architectures
-The 3D microstructure is defined by implicit minimal surface level-set equations where the material domain $\Omega_{\text{solid}} = \{ \mathbf{x} \in \mathbb{R}^3 \mid F(\mathbf{x}) - \tau(\mathbf{x}) \le 0 \}$:
+The 3D microstructure is defined by implicit minimal surface level-set equations where the material domain is $\Omega_{\text{solid}} = \{ \mathbf{x} \in \mathbb{R}^3 \mid F(\mathbf{x}) - \tau(\mathbf{x}) \le 0 \}$:
 
 * **Schwarz Primitive (P-Surface):**
-  $$
-  F_P(\mathbf{x}) = \cos\left(\frac{2\pi x}{d}\right) + \cos\left(\frac{2\pi y}{d}\right) + \cos\left(\frac{2\pi z}{d}\right)
-  $$
-  *Biomechanical Advantage:* Maximizes fluid permeability and osteoblast vascularization.
+$$
+F_P(\mathbf{x}) = \cos\left(\frac{2\pi x}{d}\right) + \cos\left(\frac{2\pi y}{d}\right) + \cos\left(\frac{2\pi z}{d}\right)
+$$
+*(Biomechanical Advantage: Maximizes fluid permeability and osteoblast vascularization)*
+
 * **Schoen Gyroid (G-Surface):**
-  $$
-  F_G(\mathbf{x}) = 1.5 \left[ \sin\left(\frac{2\pi x}{d}\right)\cos\left(\frac{2\pi y}{d}\right) + \sin\left(\frac{2\pi y}{d}\right)\cos\left(\frac{2\pi z}{d}\right) + \sin\left(\frac{2\pi z}{d}\right)\cos\left(\frac{2\pi x}{d}\right) \right]
-  $$
-  *Biomechanical Advantage:* Completely isotropic compliance tensor with superior shear strength.
+$$
+F_G(\mathbf{x}) = 1.5 \left[ \sin\left(\frac{2\pi x}{d}\right)\cos\left(\frac{2\pi y}{d}\right) + \sin\left(\frac{2\pi y}{d}\right)\cos\left(\frac{2\pi z}{d}\right) + \sin\left(\frac{2\pi z}{d}\right)\cos\left(\frac{2\pi x}{d}\right) \right]
+$$
+*(Biomechanical Advantage: Completely isotropic compliance tensor with superior shear strength)*
+
 * **Schwarz Diamond (D-Surface):**
-  $$
-  F_D(\mathbf{x}) = 1.8 \left[ \cos\left(\frac{2\pi x}{d}\right)\cos\left(\frac{2\pi y}{d}\right)\cos\left(\frac{2\pi z}{d}\right) - \sin\left(\frac{2\pi x}{d}\right)\sin\left(\frac{2\pi y}{d}\right)\sin\left(\frac{2\pi z}{d}\right) \right]
-  $$
-  *Biomechanical Advantage:* High nodal connectivity providing maximal torsional rigidity.
+$$
+F_D(\mathbf{x}) = 1.8 \left[ \cos\left(\frac{2\pi x}{d}\right)\cos\left(\frac{2\pi y}{d}\right)\cos\left(\frac{2\pi z}{d}\right) - \sin\left(\frac{2\pi x}{d}\right)\sin\left(\frac{2\pi y}{d}\right)\sin\left(\frac{2\pi z}{d}\right) \right]
+$$
+*(Biomechanical Advantage: High nodal connectivity providing maximal torsional rigidity)*
 
 ---
 
@@ -344,7 +353,9 @@ $$
 $$
 
 Where control nodes are positioned along the plate axis:
-$$x_1 = 0.035\text{ m}, \quad x_2 = 0.055\text{ m}, \quad x_3 = 0.080\text{ m}, \quad x_4 = 0.105\text{ m}, \quad x_5 = 0.125\text{ m}$$
+$$
+x_1 = 0.035\text{ m}, \quad x_2 = 0.055\text{ m}, \quad x_3 = 0.080\text{ m}, \quad x_4 = 0.105\text{ m}, \quad x_5 = 0.125\text{ m}
+$$
 
 ---
 
