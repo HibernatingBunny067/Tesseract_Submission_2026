@@ -310,19 +310,19 @@ $$
 **Mass Fraction Penalty:**
 
 $$
-\mathcal{L}_{\text{mass}} = 10.0 \cdot \operatorname{ReLU}\left(\frac{\text{Mass}(\theta)}{\text{Mass}_{\text{solid}}} - \text{MaxMass}\right)^2
+\mathcal{L}_{\text{mass}} = 10.0 \cdot \max\left(0, \frac{\text{Mass}(\theta)}{\text{Mass}_{\text{solid}}} - \text{MaxMass}\right)^2
 $$
 
 **ASTM Factor of Safety Barrier:**
 
 $$
-\mathcal{B}_{\text{FoS}} = 75.0 \cdot \operatorname{ReLU}\left(1.75 - \frac{\sigma_{\text{yield}}}{\sigma_{\text{peak}}(\theta)}\right)^2
+\mathcal{B}_{\text{FoS}} = 75.0 \cdot \max\left(0, 1.75 - \frac{\sigma_{\text{yield}}}{\sigma_{\text{peak}}(\theta)}\right)^2
 $$
 
 **Manufacturing Geometric Barrier:**
 
 $$
-\mathcal{B}_{\text{geom}} = 50.0 \cdot \left( \operatorname{ReLU}(0.35\text{ mm} - t_{\text{top}})^2 + \operatorname{ReLU}(0.35\text{ mm} - t_{\text{bot}})^2 \right)
+\mathcal{B}_{\text{geom}} = 50.0 \cdot \left( \max\left(0, 0.35\text{ mm} - t_{\text{top}}\right)^2 + \max\left(0, 0.35\text{ mm} - t_{\text{bot}}\right)^2 \right)
 $$
 
 ---
