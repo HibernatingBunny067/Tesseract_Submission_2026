@@ -94,12 +94,22 @@ st.markdown(
 
 # Dual Tesseract Microservices live health badges
 st.markdown(
-    """<div style="display: flex; gap: 1rem; margin-bottom: 1rem; flex-wrap: wrap;">
+    """<div style="display: flex; gap: 1rem; margin-bottom: 0.8rem; flex-wrap: wrap;">
         <div class="glass-card" style="padding: 0.45rem 0.9rem; font-size: 0.78rem; border-left: 3px solid #22c55e; display: flex; align-items: center; gap: 0.4rem;">
             <span style="color: #4ade80; font-size: 0.9rem;">●</span> <b>Tesseract 1:</b> FEM Adjoint Solver (<span style="color: #94a3b8;">Port 8000 · JAX-FEM + PETSc</span>)
         </div>
         <div class="glass-card" style="padding: 0.45rem 0.9rem; font-size: 0.78rem; border-left: 3px solid #38bdf8; display: flex; align-items: center; gap: 0.4rem;">
             <span style="color: #38bdf8; font-size: 0.9rem;">●</span> <b>Tesseract 2:</b> Geometry & Porosity Engine (<span style="color: #94a3b8;">Port 8001 · Differentiable SDF</span>)
+        </div>
+    </div>
+    <div style="background: rgba(245, 158, 11, 0.08); border: 1px solid rgba(245, 158, 11, 0.25); border-left: 4px solid #f59e0b; padding: 0.6rem 0.9rem; border-radius: 6px; margin-bottom: 1.1rem; font-size: 0.78rem; color: #fef3c7; display: flex; align-items: flex-start; gap: 0.6rem;">
+        <span style="font-size: 1.1rem; line-height: 1.1;">⚠️</span>
+        <div>
+            <b style="color: #fbbf24;">MEDICAL-GRADE INVESTIGATIONAL CAUTION:</b> 
+            This AI platform synthesizes patient-specific TPMS metamaterial constructs via in-silico surrogate mechanics, differentiable finite element simulation (JAX-FEM), and automated ASTM F382 / ISO 7206 virtual verification. In-silico predictions are for <b>computational surgical planning & biomechanical research only</b> and must be validated by certified physical mechanical testing prior to in-vivo additive manufacturing.
+            <div style="margin-top: 0.2rem; font-size: 0.73rem; color: #94a3b8;">
+                <i>⚡ <b>Performance Advisory:</b> Docker multi-container virtualization may introduce JAX JIT compilation and cross-network translation latency; native local execution (<code>./run</code>) provides maximum performance.</i>
+            </div>
         </div>
     </div>""",
     unsafe_allow_html=True
