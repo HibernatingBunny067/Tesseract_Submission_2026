@@ -323,7 +323,7 @@ $$
 **Mass Fraction Penalty:**
 
 $$
-\mathcal{L}_{\text{mass}} = 10.0 \cdot \max\left(0, \frac{\text{Mass}(\theta)}{\text{Mass}_{\text{solid}}} - \text{MaxMass}\right)^2
+\mathcal{L}_{\text{mass}} = 12.0 \cdot \max\left(0, \frac{\text{Mass}(\theta)}{\text{Mass}_{\text{solid}}} - \text{MaxMass}\right)^2
 $$
 
 **ASTM Factor of Safety Barrier:**
@@ -372,7 +372,7 @@ $$
 
 Where control nodes are positioned along the plate axis:
 $$
-x_1 = 0.035\text{ m}, \quad x_2 = 0.055\text{ m}, \quad x_3 = 0.080\text{ m}, \quad x_4 = 0.105\text{ m}, \quad x_5 = 0.125\text{ m}
+x_1 = 0.035\text{ m}, \quad x_2 = 0.057\text{ m}, \quad x_3 = 0.080\text{ m}, \quad x_4 = 0.103\text{ m}, \quad x_5 = 0.125\text{ m}
 $$
 
 ---
@@ -577,16 +577,16 @@ python tests/test_agent_system.py
 ```text
 Tesseract_Submission_2026/
 ├── app.py                         <-- Streamlit interactive co-design dashboard
-├── run                            <-- Native multi-service launch script
+├── run.sh                         <-- Native multi-service launch script
 ├── run_docker.sh                  <-- One-click Docker Compose launcher
 ├── docker-compose.yml             <-- 3-tier microservice container orchestration
 ├── REQUIREMENTS.txt               <-- Python package dependencies
 ├── src/
 │   ├── agent/                     <-- LangGraph multi-agent state machine & prompts
-│   │   ├── agent.py               <-- Top-level prompt dispatch & NLP parser
+│   │   ├── agent.py               <-- Top-level prompt dispatch, gibberish guardrail & NLP parser
 │   │   ├── graph.py               <-- LangGraph state machine & streaming runner
 │   │   ├── nodes.py               <-- Specialist agent nodes (Clinical, Materials, Opt, Audit)
-│   │   ├── state.py               <-- TypedDict DesignState schema & audit logger
+│   │   ├── state.py               <-- TypedDict DesignState schema & structured messaging
 │   │   ├── llm_provider.py        <-- Groq, Gemini & local LLM abstraction layer
 │   │   ├── optimize.py            <-- 12-DOF JAX-FEM adjoint optimization loop
 │   │   └── optimize_cad.py        <-- Stage 1 PyGeM FFD shape optimization loop
@@ -597,11 +597,16 @@ Tesseract_Submission_2026/
 │   ├── fem/                       <-- Finite Element Physics & Validation
 │   │   ├── forward.py             <-- JAX-FEM solver interface & problem rebuilder
 │   │   ├── problem.py             <-- Tetrahedral elasticity tensor & Von Mises evaluator
+│   │   ├── materials.py           <-- ASTM/ISO biomaterial database (Ti64 & SS316L)
+│   │   ├── petsc_compat.py        <-- High-performance SciPy SuperLU PETSc compatibility
 │   │   ├── validation.py          <-- In-silico ASTM F382 & ISO 7206 verification battery
 │   │   └── data/                  <-- Gmsh multi-grid FEA meshes (model, refined, morphed)
-│   └── ui/                        <-- User interface styling & components
-│       ├── styles.py              <-- Glassmorphic CSS design system
-│       └── components.py          <-- Status badges, cards & layout helpers
+│   ├── ui/                        <-- User interface styling & components
+│   │   ├── styles.py              <-- Glassmorphic CSS design system
+│   │   ├── charts.py              <-- Real-time Plotly telemetry with target corridors
+│   │   └── components.py          <-- 3-tier status badges, cards & layout helpers
+│   └── utils/                     <-- Utility functions & system tools
+│       └── logger.py              <-- Clinical audit trail & session JSONL history logger
 ├── tesseracts/                    <-- Tesseract Core microservices
 │   ├── fem_tesseract/             <-- Containerized JAX-FEM + SuperLU solver (Port 8000)
 │   └── geometry_tesseract/        <-- Containerized Level-Set SDF engine (Port 8001)
