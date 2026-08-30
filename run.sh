@@ -1,4 +1,4 @@
-#!/usr/bin/env bash
+#!/bin/bash
 
 # Robust launch script for Tesseract BioMechanics with instant Ctrl+C cleanup
 set -m

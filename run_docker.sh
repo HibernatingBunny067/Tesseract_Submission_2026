@@ -1,4 +1,4 @@
-#!/usr/bin/env bash
+#!/bin/bash
 
 # Launcher for running the full BioMechanics Multi-Tesseract stack in Docker
 set -e

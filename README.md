@@ -477,7 +477,7 @@ echo "GEMINI_API_KEY=your_gemini_api_key_here" >> .env
 > **Medical-Grade Investigational Caution:** This AI platform synthesizes patient-specific TPMS orthopaedic metamaterial constructs via in-silico surrogate mechanics, differentiable finite element simulation (JAX-FEM), and automated ASTM F382 / ISO 7206 virtual verification. In-silico predictions are for **computational surgical planning and biomechanical research only** and must be validated through certified physical mechanical testing and clinical surgical review prior to in-vivo additive manufacturing.
 
 > [!NOTE]
-> **Performance Advisory (Docker vs. Bare-Metal Execution):** While Docker Compose deployment (`docker compose up` / `./run_docker.sh`) guarantees a 100% reproducible and isolated microservices environment, container virtualization (especially on macOS/Windows hypervisors) incurs CPU translation, nested memory overhead, and HTTP REST serialization latency during JAX JIT compilation and PETSc sparse factorizations. Local bare-metal execution (`./run`) is significantly faster ($3\text{--}5\times$ speedup) as it executes directly on host hardware.
+> **Performance Advisory (Docker vs. Bare-Metal Execution):** While Docker Compose deployment (`docker compose up` / `./run_docker.sh`) guarantees a 100% reproducible and isolated microservices environment, container virtualization (especially on macOS/Windows hypervisors) incurs CPU translation, nested memory overhead, and HTTP REST serialization latency during JAX JIT compilation and PETSc sparse factorizations. Local bare-metal execution (`./run.sh`) is significantly faster ($3\text{--}5\times$ speedup) as it executes directly on host hardware.
 
 ### 8.3 Option A: Docker Compose Deployment (Recommended for Submission)
 Launch the complete multi-container stack with a single command:
@@ -518,7 +518,7 @@ source .venv/bin/activate
 pip install -r REQUIREMENTS.txt
 
 # 3. Run all services via the run script
-./run
+./run.sh
 ```
 
 ---
