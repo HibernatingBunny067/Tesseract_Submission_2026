@@ -509,23 +509,50 @@ streamlit run app.py
 ---
 
 ### 8.5 Option C: Local Virtual Environment Execution
+
+**1. Create and Activate a Python 3.12 Virtual Environment:**
 ```bash
-# 1. Create and activate a Python 3.12 virtual environment
+# Create environment
 python3.12 -m venv .venv
 
-# macOS / Linux / Git Bash:
+# macOS / Linux / Git Bash / WSL:
 source .venv/bin/activate
 
 # Windows PowerShell:
-# .venv\Scripts\Activate.ps1
+.\.venv\Scripts\Activate.ps1
 
-# 2. Install dependencies
-pip install -r REQUIREMENTS.txt
-
-# 3. Run all services via the cross-platform launch script
-./run.sh
-# (On Windows PowerShell: bash run.sh or streamlit run app.py)
+# Windows Command Prompt (cmd.exe):
+.venv\Scripts\activate.bat
 ```
+
+**2. Install Dependencies:**
+```bash
+pip install -r REQUIREMENTS.txt
+```
+
+**3. Launch the Platform:**
+
+* **macOS / Linux / Git Bash / WSL:**
+  ```bash
+  chmod +x run.sh
+  ./run.sh
+  ```
+
+* **Windows PowerShell:**
+  ```powershell
+  .\run.ps1
+  # Alternatively: streamlit run app.py
+  ```
+
+* **Windows Command Prompt / Double-Click:**
+  ```cmd
+  run.bat
+  ```
+
+* **Universal Direct Launch (Any OS / Any Terminal):**
+  ```bash
+  streamlit run app.py
+  ```
 
 ---
 
@@ -583,7 +610,9 @@ python tests/test_agent_system.py
 ```text
 Tesseract_Submission_2026/
 ├── app.py                         <-- Streamlit interactive co-design dashboard
-├── run.sh                         <-- Native multi-service launch script
+├── run.sh                         <-- POSIX launch script (macOS / Linux / Git Bash)
+├── run.bat                        <-- Windows Command Prompt batch launcher
+├── run.ps1                        <-- Windows PowerShell launcher
 ├── run_docker.sh                  <-- One-click Docker Compose launcher
 ├── docker-compose.yml             <-- 3-tier microservice container orchestration
 ├── REQUIREMENTS.txt               <-- Python package dependencies
