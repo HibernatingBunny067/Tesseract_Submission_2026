@@ -480,14 +480,29 @@ echo "GEMINI_API_KEY=your_gemini_api_key_here" >> .env
 > **Performance Advisory (Docker vs. Bare-Metal Execution):** While Docker Compose deployment (`docker compose up` / `./run_docker.sh`) guarantees a 100% reproducible and isolated microservices environment, container virtualization (especially on macOS/Windows hypervisors) incurs CPU translation, nested memory overhead, and HTTP REST serialization latency during JAX JIT compilation and PETSc sparse factorizations. Local bare-metal execution (`./run.sh`) is significantly faster ($3\text{--}5\times$ speedup) as it executes directly on host hardware.
 
 ### 8.3 Option A: Docker Compose Deployment (Recommended for Submission)
-Launch the complete multi-container stack with a single command:
-```bash
-# Launch multi-container microservice stack
-docker compose up --build
+Launch the complete multi-container stack with a single universal command or native scripts:
 
-# Alternatively, run the helper script:
-./run_docker.sh
-```
+* **Universal Direct Command (macOS / Linux / Windows):**
+  ```bash
+  docker compose up --build
+  ```
+
+* **macOS / Linux / Git Bash / WSL:**
+  ```bash
+  chmod +x run_docker.sh
+  ./run_docker.sh
+  ```
+
+* **Windows PowerShell:**
+  ```powershell
+  .\run_docker.ps1
+  ```
+
+* **Windows Command Prompt / Double-Click:**
+  ```cmd
+  run_docker.bat
+  ```
+
 Open your browser at **`http://localhost:8501`**.
 
 ---
@@ -613,7 +628,9 @@ Tesseract_Submission_2026/
 ├── run.sh                         <-- POSIX launch script (macOS / Linux / Git Bash)
 ├── run.bat                        <-- Windows Command Prompt batch launcher
 ├── run.ps1                        <-- Windows PowerShell launcher
-├── run_docker.sh                  <-- One-click Docker Compose launcher
+├── run_docker.sh                  <-- POSIX Docker launcher (macOS / Linux / Git Bash)
+├── run_docker.bat                 <-- Windows Command Prompt Docker batch launcher
+├── run_docker.ps1                 <-- Windows PowerShell Docker launcher
 ├── docker-compose.yml             <-- 3-tier microservice container orchestration
 ├── REQUIREMENTS.txt               <-- Python package dependencies
 ├── src/
