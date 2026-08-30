@@ -457,12 +457,24 @@ In the Section 5 verification panel, the 3D Plotly viewports render **exclusivel
 
 ## 8. Quick Start & Deployment Guide
 
-### 8.1 Prerequisites
+### 8.1 Repository Cloning (Main Branch Only)
+Clone exclusively the submission `main` branch:
+```bash
+# Clone the repository (main branch only)
+git clone -b main --single-branch https://github.com/HibernatingBunny067/Tesseract_Submission_2026.git
+cd Tesseract_Submission_2026
+```
+
+---
+
+### 8.2 Prerequisites & OS Support
 * **OS:** Windows 10/11 (WSL2, Git Bash, or Native PowerShell), macOS (Apple Silicon / Intel), or Linux (Ubuntu 20.04+)
 * **Docker:** Docker Desktop installed and running (Windows / macOS / Linux)
 * **Python:** 3.12+ (if running in a native virtual environment)
 
-### 8.2 Environment & API Key Setup
+---
+
+### 8.3 Environment & API Key Setup
 Create a `.env` file in the root directory:
 ```bash
 touch .env
@@ -477,9 +489,9 @@ echo "GEMINI_API_KEY=your_gemini_api_key_here" >> .env
 > **Medical-Grade Investigational Caution:** This AI platform synthesizes patient-specific TPMS orthopaedic metamaterial constructs via in-silico surrogate mechanics, differentiable finite element simulation (JAX-FEM), and automated ASTM F382 / ISO 7206 virtual verification. In-silico predictions are for **computational surgical planning and biomechanical research only** and must be validated through certified physical mechanical testing and clinical surgical review prior to in-vivo additive manufacturing.
 
 > [!NOTE]
-> **Performance Advisory (Docker vs. Bare-Metal Execution):** While Docker Compose deployment (`docker compose up` / `./run_docker.sh`) guarantees a 100% reproducible and isolated microservices environment, container virtualization (especially on macOS/Windows hypervisors) incurs CPU translation, nested memory overhead, and HTTP REST serialization latency during JAX JIT compilation and PETSc sparse factorizations. Local bare-metal execution (`./run.sh`) is significantly faster ($3\text{--}5\times$ speedup) as it executes directly on host hardware.
+> **Performance Advisory (Docker vs. Bare-Metal Execution):** While Docker Compose deployment (`docker compose up` / `./run_docker.sh`) guarantees a 100% reproducible and isolated microservices environment, container virtualization (especially on macOS/Windows hypervisors) incurs CPU translation, nested memory overhead, and HTTP REST serialization latency during JAX JIT compilation and PETSc sparse factorizations. Local bare-metal execution (`./run.sh` / `.\run.ps1` / `run.bat`) is significantly faster ($3\text{--}5\times$ speedup) as it executes directly on host hardware.
 
-### 8.3 Option A: Docker Compose Deployment (Recommended for Submission)
+### 8.4 Option A: Docker Compose Deployment (Recommended for Submission)
 Launch the complete multi-container stack with a single universal command or native scripts:
 
 * **Universal Direct Command (macOS / Linux / Windows):**
@@ -507,7 +519,7 @@ Open your browser at **`http://localhost:8501`**.
 
 ---
 
-### 8.4 Option B: Native Tesseract CLI Workflow
+### 8.5 Option B: Native Tesseract CLI Workflow
 ```bash
 # 1. Build Tesseract microservices
 tesseract build tesseracts/fem_tesseract --tag fem_tesseract:latest
@@ -523,7 +535,7 @@ streamlit run app.py
 
 ---
 
-### 8.5 Option C: Local Virtual Environment Execution
+### 8.6 Option C: Local Virtual Environment Execution
 
 **1. Create and Activate a Python 3.12 Virtual Environment:**
 ```bash
@@ -571,7 +583,7 @@ pip install -r REQUIREMENTS.txt
 
 ---
 
-### 8.6 Automated Test Suite Execution
+### 8.7 Automated Test Suite Execution
 Execute the automated test suite to verify the multi-agent graph, FFD morphing, and JAX-FEM solvers:
 ```bash
 python tests/test_agent_system.py
