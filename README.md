@@ -182,7 +182,7 @@ To balance rapid interactive execution during macro CAD morphing with clinical p
 * **Tag 10:** Fixation Implant Plate Construct ($E = 110\text{ GPa}, \nu = 0.32$)
 
 ### 3.3 Universal Sparse Solver & PETSc / SuperLU Engine
-To guarantee zero-dependency execution across diverse environments (macOS Apple Silicon, Linux Docker containers, and high-performance computing clusters), the platform implements an autonomous solver bridge (`src/fem/petsc_compat.py`):
+To guarantee zero-dependency execution across diverse environments (Windows, macOS Apple Silicon / Intel, Linux Docker containers, and high-performance computing clusters), the platform implements an autonomous solver bridge (`src/fem/petsc_compat.py`):
 * **Local & Docker Execution:** When compiled C-libraries for PETSc are absent, the compatibility layer provides a lightweight `_ScipyMatMock` interface, routing global finite element stiffness assembly $\mathbf{K}(\boldsymbol{\theta})$ directly into **SciPy SuperLU (`spsolve_solver`)**. This delivers a **$2.43\times$ speedup** and eliminates complex MPI/C compilation overhead on local developer workstations.
 * **HPC Distributed Execution:** On cluster environments with native `petsc4py` installed, the solver transparently engages parallel PETSc KSP/MUMPS solvers for massive million-DOF biomechanical simulations.
 * **Adjoint Vector-Jacobian Product (VJP):** During reverse-mode sensitivity analysis ($\mathbf{K}^T \boldsymbol{\lambda} = -\nabla_{\mathbf{u}} \mathcal{L}$), the compatibility layer executes out-of-place sparse transpositions and solves for adjoint states in sub-second wall time.
@@ -458,9 +458,9 @@ In the Section 5 verification panel, the 3D Plotly viewports render **exclusivel
 ## 8. Quick Start & Deployment Guide
 
 ### 8.1 Prerequisites
-* **OS:** macOS (Apple Silicon / Intel) or Linux (Ubuntu 22.04+)
-* **Docker:** Docker Desktop installed and running
-* **Python:** 3.12 (if running in native virtual environment)
+* **OS:** Windows 10/11 (WSL2, Git Bash, or Native PowerShell), macOS (Apple Silicon / Intel), or Linux (Ubuntu 20.04+)
+* **Docker:** Docker Desktop installed and running (Windows / macOS / Linux)
+* **Python:** 3.12+ (if running in a native virtual environment)
 
 ### 8.2 Environment & API Key Setup
 Create a `.env` file in the root directory:
@@ -510,15 +510,21 @@ streamlit run app.py
 
 ### 8.5 Option C: Local Virtual Environment Execution
 ```bash
-# 1. Create and activate a Python 3.12 venv
+# 1. Create and activate a Python 3.12 virtual environment
 python3.12 -m venv .venv
+
+# macOS / Linux / Git Bash:
 source .venv/bin/activate
+
+# Windows PowerShell:
+# .venv\Scripts\Activate.ps1
 
 # 2. Install dependencies
 pip install -r REQUIREMENTS.txt
 
-# 3. Run all services via the run script
+# 3. Run all services via the cross-platform launch script
 ./run.sh
+# (On Windows PowerShell: bash run.sh or streamlit run app.py)
 ```
 
 ---
