@@ -56,7 +56,11 @@ Standard solid metal bone plates (Titanium or Stainless Steel) create a fundamen
 ### 1.2 The Governing Rules of Bone Healing
 Our system is designed around two proven medical principles:
 * **Perren's Interfragmentary Strain Theory:** Successful healing requires cyclic micro-motion ($\delta$) across the fracture gap within a specific target window:
-  $$ 0.15\text{ mm} \le \delta \le 0.35\text{ mm} \quad (\varepsilon_{\text{gap}} = 7.5\% - 17.5\% \text{ for a } 2.0\text{ mm gap}) $$
+
+$$
+0.15\text{ mm} \le \delta \le 0.35\text{ mm} \quad (\varepsilon_{\text{gap}} = 7.5\% - 17.5\% \text{ for a } 2.0\text{ mm gap})
+$$
+
 * **Wolff's Law of Bone Remodeling:** Fixation devices must transfer at least **55% of the physiological load** back to the bone to preserve its density.
 
 ### 1.3 The Tesseract Solution
@@ -95,6 +99,7 @@ Standard APIs break the computational graph needed for optimization. Tesseract i
 $$
 \frac{\partial \mathcal{L}}{\partial \theta} = \frac{\partial \mathcal{L}}{\partial u} \cdot \frac{\partial u}{\partial \theta_{\text{fem}}} + \frac{\partial \mathcal{L}}{\partial \text{Mass}} \cdot \frac{\partial \text{Mass}}{\partial \theta_{\text{geom}}} + \frac{\partial \mathcal{B}}{\partial \theta}
 $$
+
 *In plain English: The system instantly knows exactly how tweaking a 3D shape parameter ($\theta$) will affect the physical stress ($u$) and mass, allowing for lightning-fast optimization.*
 
 ---
@@ -153,7 +158,8 @@ First, we bend the overall plate to match the patient's bone. We use a 5x4x4 con
 $$
 \Psi(X) = \sum_{l=0}^{4} \sum_{m=0}^{3} \sum_{n=0}^{3} B_l^4(s) B_m^3(t) B_n^3(u) \cdot \mathbf{P}_{l,m,n}
 $$
-*What this does:* It smoothly warps the 3D mesh so the plate sits flush against the patient's unique anatomy.
+
+*What this does: It smoothly warps the 3D mesh so the plate sits flush against the patient's unique anatomy.*
 
 ### 5.2 Stage 2: Micro-Lattice Optimization (JAX-FEM Adjoint)
 Next, we optimize the 12 internal parameters ($\theta$) controlling pore size, skin thickness, and blend smoothness. The AI minimizes a composite loss function:
@@ -163,30 +169,63 @@ $$
 $$
 
 **Breaking down the math (The Rules the AI Follows):**
-- **Micro-Motion Target:** $\mathcal{L}_{\text{motion}} = 2.0 \cdot \left( 22.0 \cdot \frac{\delta_{\text{achieved}} - \delta_{\text{target}}}{\delta_{\text{target}}} \right)^2$ *(Penalizes designs that don't hit the exact healing movement target).*
-- **Compliance (Strain Energy):** $\mathcal{C}(u) = \frac{1}{2} u^T K(\theta) u$ *(Encourages efficient load distribution).*
-- **Mass Penalty:** $\mathcal{L}_{\text{mass}} = 12.0 \cdot \max\left(0, \frac{\text{Mass}(\theta)}{\text{Mass}_{\text{solid}}} - \text{MaxMass}\right)^2$ *(Prevents the implant from becoming too heavy).*
-- **Safety Factor Barrier:** $\mathcal{B}_{\text{FoS}} = 75.0 \cdot \max\left(0, 1.75 - \frac{\sigma_{\text{yield}}}{\sigma_{\text{peak}}(\theta)}\right)^2$ *(Heavily penalizes designs that risk yielding under load).*
+
+* **Micro-Motion Target Penalty:**
+  $$
+  \mathcal{L}_{\text{motion}}(\theta) = 2.0 \left( 22.0 \cdot \frac{\delta_{\text{achieved}}(\theta) - \delta_{\text{target}}}{\delta_{\text{target}}} \right)^2
+  $$
+  *Penalizes designs that deviate from the exact clinical micro-motion healing window.*
+
+* **Compliance (Strain Energy Distribution):**
+  $$
+  \mathcal{C}(u) = \frac{1}{2} u^T K(\theta) u
+  $$
+  *Encourages optimal structural load transmission across the fixation plate.*
+
+* **Mass Budget Constraint Barrier:**
+  $$
+  \mathcal{L}_{\text{mass}}(\theta) = 12.0 \cdot \max\left(0, \frac{\text{Mass}(\theta)}{\text{Mass}_{\text{solid}}} - \text{MaxMass}\right)^2
+  $$
+  *Prevents the implant from exceeding the patient's targeted mass budget.*
+
+* **Safety Factor Barrier ($\text{FoS} \ge 1.75$):**
+  $$
+  \mathcal{B}_{\text{FoS}}(\theta) = 75.0 \cdot \max\left(0, 1.75 - \frac{\sigma_{\text{yield}}}{\sigma_{\text{peak}}(\theta)}\right)^2
+  $$
+  *Strictly penalizes any parameter set that risks yielding or plastic deformation under full gait loading.*
 
 ### 5.3 Porous Lattice Shapes (TPMS)
-The internal structure uses mathematically defined minimal surfaces, where material exists where $F(\mathbf{x}) \le \tau(\mathbf{x})$:
-- **Schwarz Primitive (P):** High fluid permeability (great for blood vessel growth).
-  $$ F_P(\mathbf{x}) = \cos\left(\frac{2\pi x}{d}\right) + \cos\left(\frac{2\pi y}{d}\right) + \cos\left(\frac{2\pi z}{d}\right) $$
-- **Schoen Gyroid (G):** Excellent isotropic compliance and shear resistance.
-  $$ F_G(\mathbf{x}) = 1.5 \left[ \sin\left(\frac{2\pi x}{d}\right)\cos\left(\frac{2\pi y}{d}\right) + \dots \right] $$
-- **Schwarz Diamond (D):** Maximal torsional rigidity for high-stress areas.
+The internal structure uses mathematically defined minimal surfaces, where titanium exists where $F(\mathbf{x}) \le \tau(\mathbf{x})$:
+
+* **Schwarz Primitive ($P$):** High fluid permeability for rapid vascularization and bone ingrowth:
+  $$
+  F_P(\mathbf{x}) = \cos\left(\frac{2\pi x}{d}\right) + \cos\left(\frac{2\pi y}{d}\right) + \cos\left(\frac{2\pi z}{d}\right)
+  $$
+
+* **Schoen Gyroid ($G$):** Excellent isotropic compliance and shear resistance:
+  $$
+  F_G(\mathbf{x}) = 1.5 \left[ \sin\left(\frac{2\pi x}{d}\right)\cos\left(\frac{2\pi y}{d}\right) + \sin\left(\frac{2\pi y}{d}\right)\cos\left(\frac{2\pi z}{d}\right) + \sin\left(\frac{2\pi z}{d}\right)\cos\left(\frac{2\pi x}{d}\right) \right]
+  $$
+
+* **Schwarz Diamond ($D$):** Maximal torsional rigidity for high-stress spiral fractures:
+  $$
+  F_D(\mathbf{x}) = 1.8 \left[ \cos\left(\frac{2\pi x}{d}\right)\cos\left(\frac{2\pi y}{d}\right)\cos\left(\frac{2\pi z}{d}\right) - \sin\left(\frac{2\pi x}{d}\right)\sin\left(\frac{2\pi y}{d}\right)\sin\left(\frac{2\pi z}{d}\right) \right]
+  $$
 
 ### 5.4 Smooth Blending & Material Properties
-To prevent stress concentrations, we blend the 5 zones smoothly using Gaussian weighting:
+To prevent stress concentrations, we blend the 5 zones smoothly using continuous Gaussian weighting:
+
 $$
 \tau(x) = \frac{\sum_{i=1}^5 \tau_i \cdot w_i(x)}{\sum_{i=1}^5 w_i(x)}, \quad w_i(x) = \exp\left( -\left(\frac{x - x_i}{\sigma_{\text{blend}}}\right)^2 \right)
 $$
 
-We then calculate the effective stiffness using the **Gibson-Ashby** model:
+We then calculate the effective stiffness using the **Gibson-Ashby** cellular solids model:
+
 $$
 E_{\text{eff}}(\tau) = E_{\text{solid}} \cdot \left(1.0 - \frac{\text{Porosity}(\tau)}{100}\right)^\gamma
 $$
-*(Where $\gamma = 1.60$ for Titanium, mapping porosity directly to physical strength).*
+
+*(Where $\gamma = 1.60$ for Titanium, mapping porosity directly to physical Young's modulus).*
 
 ---
 
