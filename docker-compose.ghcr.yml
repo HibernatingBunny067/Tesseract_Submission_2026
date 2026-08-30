@@ -1,0 +1,40 @@
+services:
+  fem_tesseract:
+    image: ghcr.io/hibernatingbunny067/tesseract_fem:latest
+    container_name: tesseract_fem_engine
+    ports:
+      - "8000:8000"
+    environment:
+      - JAX_FEM_LOG_LEVEL=ERROR
+      - TESSERACT_OUTPUT_PATH=/tmp/tesseract_runs
+      - JAX_PLATFORMS=cpu
+      - XLA_FLAGS=--xla_cpu_multi_thread_eigen=false
+      - XLA_PYTHON_CLIENT_PREALLOCATE=false
+      - XLA_PYTHON_CLIENT_MEM_FRACTION=0.35
+      - OMP_NUM_THREADS=4
+      - MKL_NUM_THREADS=4
+      - OPENBLAS_NUM_THREADS=4
+      - PETSC_OPTIONS=-ksp_type preonly -pc_type lu
+      - PYTHONUNBUFFERED=1
+    volumes:
+      - tesseract_runs:/tmp/tesseract_runs
+    restart: unless-stopped
+
+  geometry_tesseract:
+    image: ghcr.io/hibernatingbunny067/tesseract_geometry:latest
+    container_name: tesseract_geometry_engine
+    ports:
+      - "8001:8001"
+    environment:
+      - JAX_PLATFORMS=cpu
+      - XLA_FLAGS=--xla_cpu_multi_thread_eigen=false
+      - XLA_PYTHON_CLIENT_PREALLOCATE=false
+      - XLA_PYTHON_CLIENT_MEM_FRACTION=0.35
+      - OMP_NUM_THREADS=4
+      - MKL_NUM_THREADS=4
+      - OPENBLAS_NUM_THREADS=4
+      - PYTHONUNBUFFERED=1
+    restart: unless-stopped
+
+volumes:
+  tesseract_runs:

@@ -215,56 +215,52 @@ The Streamlit interface offers two ways to work:
 
 ## 8. Quick Start Guide
 
-### Option A: 1-Click Launch Scripts (Recommended)
-Launch scripts in `scripts/` handle all port routing, health checks, and process cleanup automatically:
+### Option A: Instant Run for Judges (Pre-Built GHCR Images · Zero Build Time)
+The fastest way to test the project. Pulls the pre-built, tested simulation engines from GitHub Container Registry with **zero build time** and launches the dashboard:
 
 ```bash
-# macOS & Linux: Canonical Tesseract Docker Microservices (Ports 8000 & 8001 in Docker + UI on Host)
-./scripts/run_docker.sh
+# macOS & Linux
+./scripts/run_prebuilt.sh
 
-# macOS & Linux: Pure Local Native (In-process zero-copy shared memory)
-./scripts/run.sh
+# Windows PowerShell
+.\scripts\run_prebuilt.ps1
+
+# Windows Command Prompt
+scripts\run_prebuilt.bat
 ```
 
-```powershell
-# Windows PowerShell: Docker Microservices Mode
-.\scripts\run_docker.ps1
-
-# Windows PowerShell: Pure Native Mode
-.\scripts\run.ps1
-```
-
-```cmd
-:: Windows Command Prompt: Docker Microservices Mode
-scripts\run_docker.bat
-
-:: Windows Command Prompt: Pure Native Mode
-scripts\run.bat
-```
-
-### Option B: Manual Multi-Container Docker Microservices
-Run the two simulation backends in Docker and connect the dashboard:
+*Or manually via Docker Compose:*
 ```bash
-# 1. Start the Dual Tesseract Simulation Engines
-docker compose up -d --build fem_tesseract geometry_tesseract
-
-# 2. Launch the interactive dashboard
+docker compose -f docker-compose.ghcr.yml pull
+docker compose -f docker-compose.ghcr.yml up -d
 streamlit run app.py
 ```
 *Open your browser at `http://localhost:8501`*
 
-> ℹ️ **Published Docker Image Note (No External AI Agent Keys Required):**  
-> The published Docker images are uploaded **without any AI Agent environment (`.env`) files** or external API dependencies. When running the containerized version, the system operates purely via its built-in **Deterministic Biomechanical Rule-Engine & Direct JAX-FEM Inverse Optimization**, allowing anyone to run and verify the full mathematical simulation without needing LLM API keys or internet access.  
->  
-> *(Optional)* To enable live LLM agent streaming (Groq/Gemini), you can mount or supply your own `.env` file with `GROQ_API_KEY` or `GEMINI_API_KEY`.
+> ℹ️ **Zero-Key & Zero-Configuration Execution:**  
+> The pre-built Docker images (`tesseract_fem` and `tesseract_geometry`) are pure mathematical simulation microservices with **no external API dependencies or `.env` files required**. The platform automatically runs its built-in **Deterministic Biomechanical Rule-Engine & JAX-FEM Adjoint Optimization**, guaranteeing 100% offline mathematical stability.  
+> *(Optional: To enable live LLM agent streaming with Groq/Gemini, you can supply your own `.env` file).*
 
-### Option C: Pull Pre-Built Image from GitHub Container Registry (GHCR)
+### Option B: Build from Source with Docker (Developers)
+Builds the custom Docker images locally from scratch:
 ```bash
-# Pull and run the pre-built, self-contained dashboard image directly
-docker run -p 8501:8501 ghcr.io/hibernatingbunny067/tesseract_dashboard:latest
+# macOS & Linux
+./scripts/run_docker.sh
+
+# Windows PowerShell
+.\scripts\run_docker.ps1
+
+# Windows Command Prompt
+scripts\run_docker.bat
 ```
 
-### Option D: Local Python Setup
+*Or manually:*
+```bash
+docker compose up --build -d fem_tesseract geometry_tesseract
+streamlit run app.py
+```
+
+### Option C: Pure Local Python Setup (100% Native · No Docker)
 ```bash
 # 1. Create and activate virtual environment
 python -m venv .venv
@@ -273,8 +269,8 @@ source .venv/bin/activate  # On Windows: .venv\Scripts\activate
 # 2. Install dependencies
 pip install -r REQUIREMENTS.txt
 
-# 3. Launch dashboard
-streamlit run app.py
+# 3. Launch natively
+./scripts/run.sh   # or: streamlit run app.py
 ```
 
 > ⚠️ **Medical Caution:** This platform is for computational surgical planning and biomechanical research only. All designs must be validated through certified physical testing and clinical review before actual manufacturing.
