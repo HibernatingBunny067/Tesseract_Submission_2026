@@ -1,6 +1,7 @@
 services:
   fem_tesseract:
     image: ghcr.io/hibernatingbunny067/tesseract_fem:latest
+    platform: linux/amd64
     container_name: tesseract_fem_engine
     ports:
       - "8000:8000"
@@ -22,6 +23,7 @@ services:
 
   geometry_tesseract:
     image: ghcr.io/hibernatingbunny067/tesseract_geometry:latest
+    platform: linux/amd64
     container_name: tesseract_geometry_engine
     ports:
       - "8001:8001"
