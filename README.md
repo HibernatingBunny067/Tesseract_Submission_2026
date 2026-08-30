@@ -211,12 +211,24 @@ The Streamlit interface offers two ways to work:
 
 **Live Feedback:** Real-time charts track the optimization loss, micro-motion convergence, and 3D color-coded views of Von Mises stress and Factor of Safety directly on the implant.
 
----
-
 ## 8. Quick Start Guide
 
+### 8.1 Deployment Modes Comparison Matrix
+
+| Mode | Target Audience | Docker Required? | `.env` / API Key Required? | Build Time | Command |
+| :--- | :--- | :---: | :---: | :---: | :--- |
+| **Option A: Pre-Built GHCR** | **Judges & Evaluators** | Yes | **❌ No (100% Omitted)** | **0 sec** (Pulls in ~5s) | `./scripts/run_prebuilt.sh` |
+| **Option B: Source Build** | **Developers** | Yes | **❌ No (100% Omitted)** | ~1–2 min (Builds images) | `./scripts/run_docker.sh` |
+| **Option C: Pure Local Python** | **Zero-Docker Users** | **❌ No** | **❌ No (100% Omitted)** | **0 sec** (In-process) | `./scripts/run.sh` |
+
+---
+
 ### Option A: Instant Run for Judges (Pre-Built GHCR Images · Zero Build Time)
-The fastest way to test the project. Pulls the pre-built, tested simulation engines from GitHub Container Registry with **zero build time** and launches the dashboard:
+> **Recommended for Hackathon Evaluation.**  
+> Automatically pulls the pre-compiled, tested simulation microservices from GitHub Container Registry (GHCR) and launches the interactive dashboard.
+
+* **Prerequisites:** Docker installed & running, Python 3.10+ virtual environment (`pip install -r REQUIREMENTS.txt`).
+* **Environment Keys (`.env`):** **NOT NEEDED / OMITTED.** The platform uses its built-in Deterministic Biomechanical Rule-Engine to run the full multi-agent optimization and FEA simulation 100% offline.
 
 ```bash
 # macOS & Linux
@@ -229,20 +241,25 @@ The fastest way to test the project. Pulls the pre-built, tested simulation engi
 scripts\run_prebuilt.bat
 ```
 
-*Or manually via Docker Compose:*
+*Or manual execution via Docker Compose:*
 ```bash
+# 1. Pull & start the pre-built Tesseract simulation engines (Ports 8000 & 8001)
 docker compose -f docker-compose.ghcr.yml pull
 docker compose -f docker-compose.ghcr.yml up -d
+
+# 2. Launch the interactive dashboard
 streamlit run app.py
 ```
 *Open your browser at `http://localhost:8501`*
 
-> ℹ️ **Zero-Key & Zero-Configuration Execution:**  
-> The pre-built Docker images (`tesseract_fem` and `tesseract_geometry`) are pure mathematical simulation microservices with **no external API dependencies or `.env` files required**. The platform automatically runs its built-in **Deterministic Biomechanical Rule-Engine & JAX-FEM Adjoint Optimization**, guaranteeing 100% offline mathematical stability.  
-> *(Optional: To enable live LLM agent streaming with Groq/Gemini, you can supply your own `.env` file).*
+---
 
 ### Option B: Build from Source with Docker (Developers)
-Builds the custom Docker images locally from scratch:
+> Builds the custom Tesseract simulation microservice images locally from their respective Dockerfiles.
+
+* **Prerequisites:** Docker installed & running, Python 3.10+ virtual environment (`pip install -r REQUIREMENTS.txt`).
+* **Environment Keys (`.env`):** **NOT NEEDED / OMITTED by default.**
+
 ```bash
 # macOS & Linux
 ./scripts/run_docker.sh
@@ -254,13 +271,20 @@ Builds the custom Docker images locally from scratch:
 scripts\run_docker.bat
 ```
 
-*Or manually:*
+*Or manual execution:*
 ```bash
 docker compose up --build -d fem_tesseract geometry_tesseract
 streamlit run app.py
 ```
 
-### Option C: Pure Local Python Setup (100% Native · No Docker)
+---
+
+### Option C: Pure Local Python Setup (100% Native · Zero Docker Required)
+> Runs the entire platform in a single, in-process Python session with zero-copy shared memory and zero container overhead.
+
+* **Prerequisites:** Python 3.10+ (No Docker or virtualization required).
+* **Environment Keys (`.env`):** **NOT NEEDED / OMITTED by default.**
+
 ```bash
 # 1. Create and activate virtual environment
 python -m venv .venv
@@ -269,9 +293,21 @@ source .venv/bin/activate  # On Windows: .venv\Scripts\activate
 # 2. Install dependencies
 pip install -r REQUIREMENTS.txt
 
-# 3. Launch natively
+# 3. Launch the application
 ./scripts/run.sh   # or: streamlit run app.py
 ```
+
+---
+
+### 🔑 (Optional) Enabling Cloud LLM Streaming
+All 3 modes operate **completely out-of-the-box with zero API keys**. However, if you wish to enable real-time streaming LLM reasoning from Groq or Google Gemini:
+1. Create a `.env` file in the project root:
+   ```env
+   GROQ_API_KEY="your-groq-api-key-here"
+   # or
+   GEMINI_API_KEY="your-gemini-api-key-here"
+   ```
+2. Re-launch any of the modes above. The Multi-Agent system will automatically detect the key and switch to live cloud LLM deliberation.
 
 > ⚠️ **Medical Caution:** This platform is for computational surgical planning and biomechanical research only. All designs must be validated through certified physical testing and clinical review before actual manufacturing.
 
@@ -292,16 +328,16 @@ pip install -r REQUIREMENTS.txt
 ```text
 Tesseract_Submission_2026/
 ├── app.py                  # Main Streamlit dashboard
-├── docker-compose.yml      # Multi-container Tesseract orchestration
-├── Dockerfile              # Dashboard container definition
+├── docker-compose.yml      # Local build Docker orchestration (Source)
+├── docker-compose.ghcr.yml # Pre-built GHCR Docker orchestration (Judges)
 ├── REQUIREMENTS.txt        # Core project dependencies
-├── scripts/                # Native & Docker launch scripts (sh, ps1, bat)
-│   ├── run.sh              # macOS/Linux native runner
-│   ├── run_docker.sh       # macOS/Linux Docker runner
-│   ├── run.ps1             # Windows PowerShell native runner
-│   ├── run_docker.ps1      # Windows PowerShell Docker runner
-│   ├── run.bat             # Windows CMD native runner
-│   └── run_docker.bat      # Windows CMD Docker runner
+├── scripts/                # Launch scripts (sh, ps1, bat)
+│   ├── run_prebuilt.sh     # Quick start with pre-built GHCR images (Zero build time)
+│   ├── run_docker.sh       # Build from source Docker runner
+│   ├── run.sh              # 100% Native local runner (No Docker)
+│   ├── run_prebuilt.ps1 / .bat
+│   ├── run_docker.ps1 / .bat
+│   └── run.ps1 / .bat
 ├── tesseracts/             # Microservices
 │   ├── fem_tesseract/      # Port 8000: JAX-FEM adjoint continuum solver
 │   └── geometry_tesseract/ # Port 8001: 3D TPMS level-set geometry engine
