@@ -196,6 +196,9 @@ def run_optimization(
     init_screw_spacing: float = 0.0145,
     init_bridge_span: float = 0.030,
     init_fillet_radius: float = 0.0012,
+    init_tau_bridge: Optional[float] = None,
+    init_tau_anchors: Optional[float] = None,
+    init_tau_transitions: Optional[float] = None,
     adam_steps: int = 25
 ) -> Generator[Dict[str, Any], None, Tuple[List[float], Dict[str, Any]]]:
     if init_skin_thickness is not None:
@@ -219,17 +222,21 @@ def run_optimization(
     value_and_grad_fn = jax.value_and_grad(loss_fn, has_aux=True)
     
     if "rigid" in objective.lower():
-        init_anc = 0.20
-        init_tra = 0.25
-        init_bri = 0.30
+        default_anc = 0.20
+        default_tra = 0.25
+        default_bri = 0.30
     elif "osteoporotic" in objective.lower():
-        init_anc = 0.50
-        init_tra = 0.65
-        init_bri = 0.80
+        default_anc = 0.50
+        default_tra = 0.65
+        default_bri = 0.80
     else:
-        init_anc = 0.35
-        init_tra = 0.45
-        init_bri = 0.55
+        default_anc = 0.35
+        default_tra = 0.45
+        default_bri = 0.55
+        
+    init_anc = float(init_tau_anchors) if init_tau_anchors is not None else default_anc
+    init_tra = float(init_tau_transitions) if init_tau_transitions is not None else default_tra
+    init_bri = float(init_tau_bridge) if init_tau_bridge is not None else default_bri
         
     # Scale-balanced 12-parameter vector:
     theta = jnp.array([

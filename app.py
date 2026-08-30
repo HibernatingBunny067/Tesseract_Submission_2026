@@ -118,93 +118,185 @@ st.markdown(
 from src.agent.agent import parse_design_request
 
 # Clinical preset definitions
-st.sidebar.markdown("### 🤖 Agentic NLP Interface")
+st.sidebar.markdown("### 🎛️ Control Architecture")
 
 workflow_mode: str = st.sidebar.radio(
     "Architecture Mode",
     ["🤖 Multi-Agent Orchestrator (LangGraph)", "⚙️ Direct Parametric Mode"],
     index=0,
-    help="Multi-Agent mode orchestrates 4 specialist agents (Clinical, Materials, Optimization, Validation) with autonomous closed-loop self-correction."
+    help="Multi-Agent mode orchestrates 4 specialist agents (Clinical, Materials, Optimization, Validation) with autonomous closed-loop self-correction. Direct Parametric mode unlocks all manual engineering controls."
 )
 
-CLINICAL_PRESETS: Dict[str, str] = {
-    "Callus Stimulation (Default)": "I need a compliant Titanium plate that allows 0.2mm of micro-motion at the fracture site to stimulate callus formation, while keeping the implant as light as possible.",
-    "Elderly Osteoporotic Patient": "I need a highly porous Titanium plate for an elderly osteoporotic patient that allows 0.30mm of micro-motion, minimizing stress shielding and maximizing porosity.",
-    "Young Athlete High-Impact Trauma": "I need a rigid, high-strength Stainless Steel plate for a young athlete that restricts micro-motion to 0.12mm to ensure stable fixation.",
-    "Cost-Effective Trauma Fixation": "I need an affordable, cost-effective 316L Stainless Steel plate that maintains 0.18mm micro-motion with high ductility."
-}
+is_agent_mode: bool = "Multi-Agent" in workflow_mode
+mat_keys = list(BIOMATERIALS.keys())
+tpms_options = [
+    "Schwarz Primitive (P) · High Permeability",
+    "Schoen Gyroid (G) · High Shear Strength",
+    "Schwarz Diamond (D) · High Torsion Grip"
+]
 
-# Synchronize prompt area when preset selection changes
-def on_preset_change() -> None:
-    selected: str = st.session_state.get("preset_select", "")
-    if selected in CLINICAL_PRESETS:
-        st.session_state.prompt_area = CLINICAL_PRESETS[selected]
-        st.session_state.parsed_req = parse_design_request(st.session_state.prompt_area)
+if is_agent_mode:
+    st.sidebar.markdown("### 🤖 Clinical Intent & Presets")
+    
+    CLINICAL_PRESETS: Dict[str, str] = {
+        "Callus Stimulation (Default)": "I need a compliant Titanium plate that allows 0.2mm of micro-motion at the fracture site to stimulate callus formation, while keeping the implant as light as possible.",
+        "Elderly Osteoporotic Patient": "I need a highly porous Titanium plate for an elderly osteoporotic patient that allows 0.30mm of micro-motion, minimizing stress shielding and maximizing porosity.",
+        "Young Athlete High-Impact Trauma": "I need a rigid, high-strength Stainless Steel plate for a young athlete that restricts micro-motion to 0.12mm to ensure stable fixation.",
+        "Cost-Effective Trauma Fixation": "I need an affordable, cost-effective 316L Stainless Steel plate that maintains 0.18mm micro-motion with high ductility."
+    }
 
-if "prompt_area" not in st.session_state:
-    st.session_state.prompt_area = CLINICAL_PRESETS["Callus Stimulation (Default)"]
+    def on_preset_change() -> None:
+        selected: str = st.session_state.get("preset_select", "")
+        if selected in CLINICAL_PRESETS:
+            st.session_state.prompt_area = CLINICAL_PRESETS[selected]
+            st.session_state.parsed_req = parse_design_request(st.session_state.prompt_area)
 
-preset_options = list(CLINICAL_PRESETS.keys()) + ["Custom Specification"]
+    if "prompt_area" not in st.session_state:
+        st.session_state.prompt_area = CLINICAL_PRESETS["Callus Stimulation (Default)"]
 
-preset = st.sidebar.selectbox(
-    "Clinical Scenario Preset",
-    preset_options,
-    key="preset_select",
-    on_change=on_preset_change
-)
+    preset_options = list(CLINICAL_PRESETS.keys()) + ["Custom Specification"]
 
-user_prompt = st.sidebar.text_area(
-    "Design Request (Natural Language)",
-    key="prompt_area",
-    height=120
-)
+    preset = st.sidebar.selectbox(
+        "Clinical Scenario Preset",
+        preset_options,
+        key="preset_select",
+        on_change=on_preset_change
+    )
 
-if "last_parsed_prompt" not in st.session_state:
-    st.session_state.last_parsed_prompt = None
+    user_prompt = st.sidebar.text_area(
+        "Design Request (Natural Language)",
+        key="prompt_area",
+        height=110
+    )
 
-if st.session_state.last_parsed_prompt != user_prompt or "parsed_req" not in st.session_state or st.session_state.parsed_req is None:
-    st.session_state.parsed_req = parse_design_request(user_prompt)
-    st.session_state.last_parsed_prompt = user_prompt
+    if "last_parsed_prompt" not in st.session_state:
+        st.session_state.last_parsed_prompt = None
 
-if "run_history" not in st.session_state:
-    st.session_state.run_history = []
-
-if st.sidebar.button("⚡ Re-Parse Prompt", width="stretch"):
-    with st.spinner("Agent interpreting biomechanical prompt…"):
-        time.sleep(0.2)
+    if st.session_state.last_parsed_prompt != user_prompt or "parsed_req" not in st.session_state or st.session_state.parsed_req is None:
         st.session_state.parsed_req = parse_design_request(user_prompt)
         st.session_state.last_parsed_prompt = user_prompt
 
-req = st.session_state.parsed_req
-if req:
+    if st.sidebar.button("⚡ Re-Parse Prompt", width="stretch"):
+        with st.spinner("Agent interpreting biomechanical prompt…"):
+            time.sleep(0.2)
+            st.session_state.parsed_req = parse_design_request(user_prompt)
+            st.session_state.last_parsed_prompt = user_prompt
+
+    req = st.session_state.parsed_req
     rec_tpms = getattr(req, 'recommended_tpms', 'Schwarz Primitive (P)')
     f_rad_val = getattr(req, 'fillet_radius_mm', 1.2)
     s_spac_val = getattr(req, 'screw_spacing_mm', 15.0)
-    st.sidebar.markdown(f"""
-    <div class="glass-card" style="padding: 0.8rem; margin-top: 0.5rem; font-size: 0.8rem; border-left: 3px solid #6366f1;">
-        <div style="color: #4ade80; font-weight: 600; margin-bottom: 0.3rem;">✓ Requirements Parsed</div>
-        <div><b>Objective:</b> <span style="color: #a78bfa;">{req.objective}</span></div>
-        <div><b>Target Micro-Motion:</b> <span style="color: #f8fafc; font-weight: 600;">{req.target_fracture_displacement*1000:.2f} mm</span> ({req.target_fracture_displacement*1e6:.0f} µm)</div>
-        <div><b>Upper Mass Limit:</b> <span style="color: #f8fafc;">{req.max_mass*100:.0f}%</span></div>
-        <div><b>Recommended Material:</b> <span style="color: #38bdf8;">{req.recommended_material}</span></div>
-        <div><b>Recommended Topology:</b> <span style="color: #c084fc;">{rec_tpms}</span></div>
-        <div><b>Fillet Radius:</b> <span style="color: #fbbf24;">{f_rad_val:.1f} mm</span> &nbsp;|&nbsp; <b>Screw Pitch:</b> <span style="color: #34d399;">{s_spac_val:.1f} mm</span></div>
-        <div style="margin-top: 0.3rem; color: #94a3b8; font-size: 0.72rem;"><i>{req.clinical_rationale}</i></div>
+
+    if req:
+        st.sidebar.markdown(f"""
+        <div class="glass-card" style="padding: 0.8rem; margin-top: 0.5rem; font-size: 0.8rem; border-left: 3px solid #6366f1;">
+            <div style="color: #4ade80; font-weight: 600; margin-bottom: 0.3rem;">✓ Requirements Parsed</div>
+            <div><b>Objective:</b> <span style="color: #a78bfa;">{req.objective}</span></div>
+            <div><b>Target Micro-Motion:</b> <span style="color: #f8fafc; font-weight: 600;">{req.target_fracture_displacement*1000:.2f} mm</span> ({req.target_fracture_displacement*1e6:.0f} µm)</div>
+            <div><b>Upper Mass Limit:</b> <span style="color: #f8fafc;">{req.max_mass*100:.0f}%</span></div>
+            <div><b>Recommended Material:</b> <span style="color: #38bdf8;">{req.recommended_material}</span></div>
+            <div><b>Recommended Topology:</b> <span style="color: #c084fc;">{rec_tpms}</span></div>
+            <div><b>Fillet Radius:</b> <span style="color: #fbbf24;">{f_rad_val:.1f} mm</span> &nbsp;|&nbsp; <b>Screw Pitch:</b> <span style="color: #34d399;">{s_spac_val:.1f} mm</span></div>
+            <div style="margin-top: 0.3rem; color: #94a3b8; font-size: 0.72rem;"><i>{req.clinical_rationale}</i></div>
+        </div>
+        """, unsafe_allow_html=True)
+
+    with st.sidebar.expander("📐 Fixation CAD Geometry (Agent-Governed)", expanded=False):
+        st.markdown(f"""
+        <div style="background: rgba(15, 23, 42, 0.75); padding: 0.7rem; border-radius: 6px; border-left: 3px solid #6366f1; font-size: 0.78rem;">
+            <div style="color: #a5b4fc; font-weight: 600; margin-bottom: 0.4rem;">🔒 Autonomous CAD Baseline</div>
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 0.35rem; font-size: 0.75rem;">
+                <div>• <b>Fillet:</b> {f_rad_val:.1f} mm</div>
+                <div>• <b>Screw Pitch:</b> {s_spac_val:.1f} mm</div>
+                <div>• <b>Top Skin:</b> 0.50 mm</div>
+                <div>• <b>Bottom Skin:</b> 0.50 mm</div>
+                <div>• <b>TPMS Core:</b> 5.00 mm</div>
+                <div>• <b>Bridge Span:</b> 30.0 mm</div>
+                <div>• <b>Cell Size:</b> 5.0 mm</div>
+                <div>• <b>Topology:</b> {rec_tpms.split(' ')[1] if len(rec_tpms.split(' ')) > 1 else rec_tpms}</div>
+            </div>
+            <div style="margin-top: 0.5rem; color: #94a3b8; font-size: 0.7rem; font-style: italic;">
+                Parameters are autonomously governed & self-corrected by the 4-agent loop. Switch to "Direct Parametric Mode" for manual overrides.
+            </div>
+        </div>
+        """, unsafe_allow_html=True)
+
+    fillet_radius_mm = float(f_rad_val)
+    t_top_mm = 0.50
+    t_bot_mm = 0.50
+    bridge_span_mm = 30.0
+    cell_size_mm = 5.0
+    screw_spacing_mm = float(s_spac_val)
+
+    st.sidebar.markdown("### 🧪 Material & Topology (Agent-Prescribed)")
+    default_mat_idx = mat_keys.index(req.recommended_material) if (req and req.recommended_material in mat_keys) else 0
+    selected_material_name = mat_keys[default_mat_idx]
+    selected_material = BIOMATERIALS[selected_material_name]
+    st.sidebar.markdown(material_card(selected_material), unsafe_allow_html=True)
+
+    rec_lower = getattr(req, "recommended_tpms", "").lower()
+    if "gyroid" in rec_lower:
+        tpms_type_code = "gyroid"
+    elif "diamond" in rec_lower:
+        tpms_type_code = "diamond"
+    else:
+        tpms_type_code = "primitive"
+
+else:
+    # Direct Parametric Mode: Full manual control for engineers
+    st.sidebar.markdown("""
+    <div style="background: rgba(14, 165, 233, 0.1); border: 1px solid rgba(14, 165, 233, 0.3); border-left: 3px solid #0ea5e9; padding: 0.6rem 0.8rem; border-radius: 6px; font-size: 0.78rem; margin-bottom: 0.8rem; color: #e0f2fe;">
+        ⚙️ <b>Direct Parametric Mode Active</b><br/>
+        Manual biomechanical engineering control. Natural language NLP parsing is bypassed — tune all boundary conditions, alloys, and CAD dimensions manually below.
     </div>
     """, unsafe_allow_html=True)
 
-with st.sidebar.expander("📐 Fixation CAD Geometry", expanded=False):
-    fillet_radius_mm = st.slider(
-        "Fillet Radius (mm)", 0.4, 2.5, float(getattr(req, "fillet_radius_mm", 1.2)), 0.1
+    st.sidebar.markdown("### 🎯 Optimization Targets")
+    target_disp_mm = st.sidebar.slider(
+        "Target Micro-Motion (mm)", 0.08, 0.35, 0.20, 0.01,
+        help="Physiological fracture micro-motion window (0.08mm - 0.35mm)"
     )
-    t_top_mm = st.slider("Top Skin (mm)", 0.15, 2.00, 0.50, 0.05)
-    t_bot_mm = st.slider("Bottom Skin (mm)", 0.15, 2.00, 0.50, 0.05)
-    h_tpms_mm = max(6.0 - t_top_mm - t_bot_mm, 1.0)
-    st.caption(f"🧬 TPMS Core: **{h_tpms_mm:.2f} mm** · Total Depth: **6.00 mm**")
-    bridge_span_mm = st.slider("Bridge Span (mm)", 18.0, 45.0, 30.0, 1.0)
-    cell_size_mm = st.slider("TPMS Cell Size (mm)", 3.5, 7.5, 5.0, 0.5)
-    screw_spacing_mm = st.slider(
-        "Screw Pitch (mm)", 10.0, 16.0, float(getattr(req, "screw_spacing_mm", 14.5)), 0.5
+    max_mass_pct = st.sidebar.slider(
+        "Upper Mass Limit (%)", 40, 85, 60, 5,
+        help="Maximum relative mass fraction allowed"
+    )
+
+    st.sidebar.markdown("### 🧪 Biomaterial & Lattice Topology")
+    selected_material_name = st.sidebar.selectbox("Biomaterial", mat_keys, index=0)
+    selected_material = BIOMATERIALS[selected_material_name]
+    st.sidebar.markdown(material_card(selected_material), unsafe_allow_html=True)
+
+    tpms_choice = st.sidebar.selectbox("Lattice Topology", tpms_options, index=0)
+    if "gyroid" in tpms_choice.lower():
+        tpms_type_code = "gyroid"
+        tpms_type_name = "Schoen Gyroid (G)"
+    elif "diamond" in tpms_choice.lower():
+        tpms_type_code = "diamond"
+        tpms_type_name = "Schwarz Diamond (D)"
+    else:
+        tpms_type_code = "primitive"
+        tpms_type_name = "Schwarz Primitive (P)"
+
+    with st.sidebar.expander("📐 Fixation CAD Geometry (Manual Control)", expanded=True):
+        fillet_radius_mm = st.slider("Fillet Radius (mm)", 0.4, 2.5, 1.2, 0.1)
+        t_top_mm = st.slider("Top Skin (mm)", 0.15, 2.00, 0.50, 0.05)
+        t_bot_mm = st.slider("Bottom Skin (mm)", 0.15, 2.00, 0.50, 0.05)
+        h_tpms_mm = max(6.0 - t_top_mm - t_bot_mm, 1.0)
+        st.caption(f"🧬 TPMS Core: **{h_tpms_mm:.2f} mm** · Total Depth: **6.00 mm**")
+        bridge_span_mm = st.slider("Bridge Span (mm)", 18.0, 45.0, 30.0, 1.0)
+        cell_size_mm = st.slider("TPMS Cell Size (mm)", 3.5, 7.5, 5.0, 0.5)
+        screw_spacing_mm = st.slider("Screw Pitch (mm)", 10.0, 16.0, 14.5, 0.5)
+
+    # Synthesize direct manual design request
+    req = DesignRequest(
+        objective="Manual Parametric Fixation Optimization",
+        target_fracture_displacement=target_disp_mm / 1000.0,
+        max_mass=max_mass_pct / 100.0,
+        recommended_material=selected_material_name,
+        recommended_tpms=tpms_type_name,
+        fillet_radius_mm=fillet_radius_mm,
+        screw_spacing_mm=screw_spacing_mm,
+        clinical_rationale=f"Manual parametric optimization: {selected_material_name} with {tpms_type_name} target motion {target_disp_mm:.2f}mm."
     )
 
 fillet_radius_m = fillet_radius_mm / 1000.0
@@ -233,37 +325,6 @@ with st.sidebar.expander("⚙️ Simulation & Solver", expanded=False):
     )
     opt_max_steps = st.slider("Max Optimization Iterations", 5, 1000, 100, 5)
     enable_early_stopping = st.checkbox("Enable Early Convergence Stopping", value=True)
-
-# Target biomaterial specification
-mat_keys = list(BIOMATERIALS.keys())
-default_mat_idx = mat_keys.index(req.recommended_material) if (req and req.recommended_material in mat_keys) else 0
-
-st.sidebar.markdown("### 🧪 Material & Topology")
-selected_material_name = st.sidebar.selectbox("Biomaterial", mat_keys, index=default_mat_idx)
-selected_material = BIOMATERIALS[selected_material_name]
-st.sidebar.markdown(material_card(selected_material), unsafe_allow_html=True)
-
-# Minimal surface metamaterial topology selection
-tpms_options = [
-    "Schwarz Primitive (P) · High Permeability",
-    "Schoen Gyroid (G) · High Shear Strength",
-    "Schwarz Diamond (D) · High Torsion Grip"
-]
-default_tpms_idx = 0
-if req:
-    rec_lower = getattr(req, "recommended_tpms", "").lower()
-    if "gyroid" in rec_lower:
-        default_tpms_idx = 1
-    elif "diamond" in rec_lower:
-        default_tpms_idx = 2
-
-tpms_choice = st.sidebar.selectbox("Lattice Topology", tpms_options, index=default_tpms_idx)
-if "gyroid" in tpms_choice.lower():
-    tpms_type_code = "gyroid"
-elif "diamond" in tpms_choice.lower():
-    tpms_type_code = "diamond"
-else:
-    tpms_type_code = "primitive"
 
 with st.sidebar.expander("📖 Objective Functions", expanded=False):
     st.markdown(r"""

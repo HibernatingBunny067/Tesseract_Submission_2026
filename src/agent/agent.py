@@ -143,7 +143,7 @@ def _parse_with_backend_llm(prompt: str, api_key: str) -> Optional[DesignRequest
                     target_disp = raw_disp * 1e-3
                 else:
                     target_disp = raw_disp
-                target_disp = min(max(target_disp, 0.00008), 0.00040)
+                target_disp = min(max(target_disp, 0.00008), 0.00035)
                 
                 raw_mass = float(parsed_json.get("max_mass", 0.60))
                 if raw_mass > 1.0:
@@ -215,7 +215,7 @@ def _parse_with_gemini_llm(prompt: str, api_key: str) -> Optional[DesignRequest]
                         target_disp = raw_disp * 1e-3
                     else:
                         target_disp = raw_disp
-                    target_disp = min(max(target_disp, 0.00008), 0.00040)
+                    target_disp = min(max(target_disp, 0.00008), 0.00035)
                     
                     raw_mass = float(parsed_json.get("max_mass", 0.60))
                     if raw_mass > 1.0:
@@ -271,7 +271,7 @@ def _parse_with_local_nlp(user_prompt: str) -> DesignRequest:
         elif "callus" in prompt_lower or "secondary healing" in prompt_lower:
             target_disp_m = 0.00020
             
-    target_disp_m = min(max(target_disp_m, 0.00008), 0.00040)
+    target_disp_m = min(max(target_disp_m, 0.00008), 0.00035)
         
     # 2. TPMS lattice architecture parsing
     recommended_tpms = "Schwarz Primitive (P)"

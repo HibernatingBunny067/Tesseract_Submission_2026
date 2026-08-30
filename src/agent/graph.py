@@ -27,18 +27,26 @@ def prepare_retry_node(state: DesignState) -> dict:
     """Prepares state for the next optimization attempt by incrementing attempt counter."""
     attempt = state.get("attempt", 1) + 1
     messages = list(state.get("messages", []))
-    corrections = state.get("corrections", {})
+    corrections = state.get("corrections", {}) or {}
+    adjusted = corrections.get("adjusted_params", {})
+    
+    design_spec = dict(state.get("design_spec") or {})
+    initial_params = dict(design_spec.get("initial_params") or {})
+    for k, v in adjusted.items():
+        initial_params[k] = v
+    design_spec["initial_params"] = initial_params
     
     messages.append(create_message(
         "optimization_controller",
         f"🔄 Initializing Self-Correction Loop (Attempt {attempt}/{state.get('max_attempts', 3)})\n\n"
-        f"Applying prescribed parameters: {corrections.get('adjusted_params', {})}",
+        f"Applying prescribed parameters: {adjusted}",
         "status",
         data={"attempt": attempt, "corrections": corrections}
     ))
     
     return {
         "attempt": attempt,
+        "design_spec": design_spec,
         "messages": messages,
     }
 
