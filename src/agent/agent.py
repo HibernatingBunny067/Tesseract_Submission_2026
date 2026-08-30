@@ -206,13 +206,11 @@ def _parse_with_backend_llm(prompt: str, api_key: str) -> Optional[DesignRequest
             "temperature": 0.1
         }
         try:
-            # print(f"[Backend LLM Agent] ⚡ Querying Groq ({model}) for: '{prompt}'...")
             resp = requests.post(url, headers=headers, json=payload, timeout=7)
             if resp.status_code == 200:
                 data = resp.json()
                 content = data["choices"][0]["message"]["content"]
                 parsed_json = json.loads(content)
-                # print(f"[Backend LLM Agent] ✅ Groq Success ({model}): {parsed_json}")
                 
                 # Material mapping validation (Ti-6Al-4V Grade 5 Titanium or 316L Stainless Steel)
                 mat = parsed_json.get("recommended_material", "Ti-6Al-4V (Grade 5 Titanium)")
@@ -261,8 +259,8 @@ def _parse_with_backend_llm(prompt: str, api_key: str) -> Optional[DesignRequest
                     screw_spacing_mm=s_spac,
                     clinical_rationale=f"⚡ [Groq LLM / {model}]: " + parsed_json.get("clinical_rationale", "")
                 )
-        except Exception as e:
-            print(f"[Backend LLM Agent Exception on {model}]: {e}")
+        except Exception:
+            pass
             
     return None
 
@@ -335,8 +333,8 @@ def _parse_with_gemini_llm(prompt: str, api_key: str) -> Optional[DesignRequest]
                     )
             except Exception:
                 continue
-    except Exception as e:
-        print(f"[Gemini Agent Exception]: {e}")
+    except Exception:
+        pass
         
     return None
 

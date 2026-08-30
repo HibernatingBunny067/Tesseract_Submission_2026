@@ -43,24 +43,29 @@ def create_loss_function(
         
         # 1. Evaluate Tesseract 1: JAX-FEM Biomechanical Continuum Engine
         if fem_client is not None:
-            fem_inputs = {
-                'cell_size': cell_size,
-                'tau_prox_anchor': t_p_anc,
-                'tau_prox_trans': t_p_tra,
-                'tau_bridge': t_bridge,
-                'tau_dist_trans': t_d_tra,
-                'tau_dist_anchor': t_d_anc,
-                'sigma_blend': sigma,
-                't_top': t_top,
-                't_bottom': t_bot,
-                'screw_spacing': screw_s,
-                'bridge_span': bridge_s,
-                'fillet_radius': r_fillet
-            }
-            fem_out = tjax.apply_tesseract(fem_client, fem_inputs)
-            compliance = fem_out['compliance']
-            max_disp = fem_out['max_displacement']
-            raw_frac_disp = fem_out['fracture_displacement']
+            try:
+                fem_inputs = {
+                    'cell_size': cell_size,
+                    'tau_prox_anchor': t_p_anc,
+                    'tau_prox_trans': t_p_tra,
+                    'tau_bridge': t_bridge,
+                    'tau_dist_trans': t_d_tra,
+                    'tau_dist_anchor': t_d_anc,
+                    'sigma_blend': sigma,
+                    't_top': t_top,
+                    't_bottom': t_bot,
+                    'screw_spacing': screw_s,
+                    'bridge_span': bridge_s,
+                    'fillet_radius': r_fillet
+                }
+                fem_out = tjax.apply_tesseract(fem_client, fem_inputs)
+                compliance = fem_out['compliance']
+                max_disp = fem_out['max_displacement']
+                raw_frac_disp = fem_out['fracture_displacement']
+            except Exception:
+                from src.fem.forward import solve_fem_differentiable
+                theta_phys = jnp.array([cell_size, t_p_anc, t_p_tra, t_bridge, t_d_tra, t_d_anc, sigma, t_top, t_bot, screw_s, bridge_s, r_fillet, tpms_ga_exponent, material_modulus_gpa])
+                compliance, max_disp, raw_frac_disp = solve_fem_differentiable(theta_phys)
         else:
             from src.fem.forward import solve_fem_differentiable
             theta_phys = jnp.array([cell_size, t_p_anc, t_p_tra, t_bridge, t_d_tra, t_d_anc, sigma, t_top, t_bot, screw_s, bridge_s, r_fillet, tpms_ga_exponent, material_modulus_gpa])
@@ -68,24 +73,29 @@ def create_loss_function(
 
         # 2. Evaluate Tesseract 2: Geometry & Porosity Metamaterial Engine
         if geometry_client is not None:
-            geom_inputs = {
-                'cell_size': cell_size,
-                'tau_prox_anchor': t_p_anc,
-                'tau_prox_trans': t_p_tra,
-                'tau_bridge': t_bridge,
-                'tau_dist_trans': t_d_tra,
-                'tau_dist_anchor': t_d_anc,
-                'sigma_blend': sigma,
-                't_top': t_top,
-                't_bottom': t_bot,
-                'screw_spacing': screw_s,
-                'bridge_span': bridge_s,
-                'fillet_radius': r_fillet
-            }
-            geom_out = tjax.apply_tesseract(geometry_client, geom_inputs)
-            mean_porosity = geom_out['mean_porosity']
-            bridge_porosity = geom_out['bridge_porosity']
-            mass_fraction = geom_out['mass_fraction']
+            try:
+                geom_inputs = {
+                    'cell_size': cell_size,
+                    'tau_prox_anchor': t_p_anc,
+                    'tau_prox_trans': t_p_tra,
+                    'tau_bridge': t_bridge,
+                    'tau_dist_trans': t_d_tra,
+                    'tau_dist_anchor': t_d_anc,
+                    'sigma_blend': sigma,
+                    't_top': t_top,
+                    't_bottom': t_bot,
+                    'screw_spacing': screw_s,
+                    'bridge_span': bridge_s,
+                    'fillet_radius': r_fillet
+                }
+                geom_out = tjax.apply_tesseract(geometry_client, geom_inputs)
+                mean_porosity = geom_out['mean_porosity']
+                bridge_porosity = geom_out['bridge_porosity']
+                mass_fraction = geom_out['mass_fraction']
+            except Exception:
+                from tesseracts.geometry_tesseract.tesseract_api import evaluate_geometry_metrics
+                theta_phys = jnp.array([cell_size, t_p_anc, t_p_tra, t_bridge, t_d_tra, t_d_anc, sigma, t_top, t_bot, screw_s, bridge_s, r_fillet])
+                mean_porosity, bridge_porosity, mass_fraction, _ = evaluate_geometry_metrics(theta_phys)
         else:
             from tesseracts.geometry_tesseract.tesseract_api import evaluate_geometry_metrics
             theta_phys = jnp.array([cell_size, t_p_anc, t_p_tra, t_bridge, t_d_tra, t_d_anc, sigma, t_top, t_bot, screw_s, bridge_s, r_fillet])
@@ -281,6 +291,7 @@ def run_optimization(
     best_loss = float('inf')
     prev_loss = float('inf')
     patience_counter = 0
+    target_lock_counter = 0
     current_phase = "Warmup"
     
     for step in range(max_steps):
@@ -404,7 +415,23 @@ def run_optimization(
         # Fillet radius bounds: [0.4mm, 2.5mm]
         theta = theta.at[11].set(jnp.clip(theta[11], 0.4, 2.5))
               
-        # Early stopping — requires min 15 steps (exploring the plateau) before declaring convergence.
+        # ==========================================
+        # Multi-Objective Clinical Target-Lock Meta-Heuristic:
+        # ==========================================
+        # When the primary surgical micro-motion target is locked within ±3.5% error
+        # and mass constraint is satisfied for 3 consecutive steps after warmup:
+        motion_err_pct = abs(float(frac_disp) - target_fracture_displacement) / (target_fracture_displacement + 1e-9) * 100.0
+        clinical_satisfied = (motion_err_pct <= 3.5) and (float(mass_fraction) <= max_mass + 0.02)
+        
+        if clinical_satisfied and step >= 14:
+            target_lock_counter += 1
+            if target_lock_counter >= 3:
+                # Early exit: Clinical target locked and structural criteria satisfied
+                break
+        else:
+            target_lock_counter = 0
+
+        # Loss-based patience early stopping — requires min 15 steps before declaring loss stagnation
         loss_val = float(loss)
         if loss_val < best_loss - 1e-4:
             best_loss = loss_val

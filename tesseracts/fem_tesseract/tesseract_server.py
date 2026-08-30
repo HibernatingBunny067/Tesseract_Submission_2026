@@ -23,7 +23,25 @@ import tesseracts.fem_tesseract.tesseract_api as api
 
 app = create_rest_api(api)
 
+# Server startup warm-up: JIT-compiles JAX forward and VJP kernels before serving requests
+def warmup_server():
+    try:
+        print("[fem_tesseract] Warming up JAX-FEM forward and adjoint kernels at boot...")
+        dummy_input = api.InputSchema()
+        _ = api.apply(dummy_input)
+        # Warm up VJP
+        _ = api.vector_jacobian_product(
+            dummy_input,
+            vjp_inputs={"cell_size", "tau_bridge"},
+            vjp_outputs={"compliance", "fracture_displacement"},
+            cotangent_vector={"compliance": 1.0, "fracture_displacement": 1.0}
+        )
+        print("[fem_tesseract] JAX-FEM warm-up complete! Ready to serve instantaneous requests.")
+    except Exception as e:
+        print(f"[fem_tesseract] Warm-up notice: {e}")
+
 if __name__ == "__main__":
+    warmup_server()
     host = os.environ.get("HOST", "0.0.0.0")
     port = int(os.environ.get("PORT", "8000"))
     uvicorn.run(app, host=host, port=port)

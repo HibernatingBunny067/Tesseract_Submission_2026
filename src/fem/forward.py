@@ -4,6 +4,7 @@ import sys
 import logging
 from typing import Tuple, Union, List, Any, Optional
 import numpy as np
+import jax
 import jax.numpy as jnp
 
 logging.getLogger("jax_fem").setLevel(logging.ERROR)
@@ -35,8 +36,28 @@ _base_path: str = os.path.join(_data_dir, "model.msh")
 _default_base: str = _refined_path if os.path.exists(_refined_path) else _base_path
 mesh_path: str = _morphed_path if os.path.exists(_morphed_path) else _default_base
 
+# Pre-computed cached masks for fracture gap micro-motion tracking
+_prox_mask_col = None
+_dist_mask_col = None
+_prox_denom = None
+_dist_denom = None
+
+
+def _init_gap_masks(prob: BiomechanicsProblem) -> None:
+    """Pre-computes fracture gap node masks once to eliminate per-step recalculation."""
+    global _prox_mask_col, _dist_mask_col, _prox_denom, _dist_denom
+    points = prob.fes[0].points
+    p_mask = jnp.logical_and(jnp.abs(points[:, 0] - 0.079) < 1e-4, jnp.sqrt(points[:, 1]**2 + points[:, 2]**2) <= 0.012)
+    d_mask = jnp.logical_and(jnp.abs(points[:, 0] - 0.081) < 1e-4, jnp.sqrt(points[:, 1]**2 + points[:, 2]**2) <= 0.012)
+    _prox_mask_col = p_mask[:, None]
+    _dist_mask_col = d_mask[:, None]
+    _prox_denom = jnp.sum(p_mask) + 1e-10
+    _dist_denom = jnp.sum(d_mask) + 1e-10
+
+
 if os.path.exists(mesh_path):
     problem: Optional[BiomechanicsProblem] = build_problem(mesh_path)
+    _init_gap_masks(problem)
     # Differentiable forward and adjoint solver wrapper
     fwd_pred = ad_wrapper(
         problem,
@@ -71,6 +92,7 @@ def rebuild_for_morphed_mesh(morphed_mesh_path: Optional[str] = None) -> None:
 
     mesh_path = morphed_mesh_path
     problem = build_problem(mesh_path)
+    _init_gap_masks(problem)
     fwd_pred = ad_wrapper(
         problem,
         solver_options=SOLVER_OPTIONS,
@@ -91,18 +113,14 @@ def solve_fem(theta: Union[List[float], jnp.ndarray, np.ndarray]) -> Tuple[jnp.n
         solver_options=SOLVER_OPTIONS,
     )
 
-    points = problem.fes[0].points
     u: jnp.ndarray = sol_list[0]
 
     compliance: jnp.ndarray = problem.compute_compliance(u)
     max_displacement: jnp.ndarray = jnp.max(jnp.abs(u))
     
-    # Interfragmentary micro-motion measured across the 2.0 mm fracture gap (x=79mm to x=81mm)
-    prox_mask = jnp.logical_and(jnp.abs(points[:, 0] - 0.079) < 1e-4, jnp.sqrt(points[:, 1]**2 + points[:, 2]**2) <= 0.012)
-    dist_mask = jnp.logical_and(jnp.abs(points[:, 0] - 0.081) < 1e-4, jnp.sqrt(points[:, 1]**2 + points[:, 2]**2) <= 0.012)
-    
-    u_prox = jnp.sum(u * prox_mask[:, None], axis=0) / (jnp.sum(prox_mask) + 1e-10)
-    u_dist = jnp.sum(u * dist_mask[:, None], axis=0) / (jnp.sum(dist_mask) + 1e-10)
+    # Interfragmentary micro-motion measured across the 2.0 mm fracture gap (cached masks)
+    u_prox = jnp.sum(u * _prox_mask_col, axis=0) / _prox_denom
+    u_dist = jnp.sum(u * _dist_mask_col, axis=0) / _dist_denom
     
     fracture_displacement: jnp.ndarray = jnp.linalg.norm(u_prox - u_dist)
 
@@ -122,16 +140,12 @@ def solve_fem_differentiable(theta: Union[List[float], jnp.ndarray, np.ndarray])
     sol_list = fwd_pred(theta_arr)
 
     u: jnp.ndarray = sol_list[0]
-    points = problem.fes[0].points
     
     compliance: jnp.ndarray = problem.compute_compliance(u)
     max_displacement: jnp.ndarray = jnp.max(jnp.abs(u))
     
-    prox_mask = jnp.logical_and(jnp.abs(points[:, 0] - 0.079) < 1e-4, jnp.sqrt(points[:, 1]**2 + points[:, 2]**2) <= 0.012)
-    dist_mask = jnp.logical_and(jnp.abs(points[:, 0] - 0.081) < 1e-4, jnp.sqrt(points[:, 1]**2 + points[:, 2]**2) <= 0.012)
-    
-    u_prox = jnp.sum(u * prox_mask[:, None], axis=0) / (jnp.sum(prox_mask) + 1e-10)
-    u_dist = jnp.sum(u * dist_mask[:, None], axis=0) / (jnp.sum(dist_mask) + 1e-10)
+    u_prox = jnp.sum(u * _prox_mask_col, axis=0) / _prox_denom
+    u_dist = jnp.sum(u * _dist_mask_col, axis=0) / _dist_denom
     
     fracture_displacement: jnp.ndarray = jnp.linalg.norm(u_prox - u_dist)
 

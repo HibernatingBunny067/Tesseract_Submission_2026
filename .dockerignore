@@ -1,11 +1,39 @@
-.venv/
+# Git & IDE metadata
 .git/
-.DS_Store
-__pycache__/
-*.pyc
-*.pyo
-*.pyd
-logs/*.log
-logs/*.jsonl
+.gitignore
+.gitattributes
+.github/
 .vscode/
 .idea/
+.DS_Store
+*.swp
+*~
+
+# Virtual environments
+.venv/
+env/
+venv/
+ENV/
+
+# Python caches & bytecode
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.pytest_cache/
+
+# Local scripts & automation
+scripts/
+
+# Local logs & runs
+logs/*.log
+logs/*.jsonl
+/tmp/tesseract_runs/
+/tmp/mlruns/
+
+# Large media, documentation & test artifacts
+images/
+tests/
+examples/
+*.md
+LICENSE

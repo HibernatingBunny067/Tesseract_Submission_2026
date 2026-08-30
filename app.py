@@ -476,12 +476,39 @@ with col_opt:
             loss_ph     = st.empty()
             disp_ph     = st.empty()
             porosity_ph = st.empty()
-            
+
         with tab_sens:
             grad_ph = st.empty()
+            
+        def to_porosity(t):
+            # Physically accurate mapping from level-set threshold tau in [0.10, 1.45]
+            # to unit-cell TPMS lattice porosity [54.7%, 88.1%]
+            t_clamped = min(max(float(t), 0.10), 1.45)
+            return 54.7 + ((t_clamped - 0.10) / 1.35) * (88.1 - 54.7)
 
         if start_button:
-            progress_ph.info("⏳ Connecting to Dual Tesseract Microservices (Port 8000 & Port 8001)...")
+            target_mm = req.target_fracture_displacement * 1000.0
+            initial_baseline_disp = 0.018  # Un-optimized rigid solid construct baseline
+
+            # Immediately populate telemetry charts with baseline targets and active reference corridors
+            loss_ph.plotly_chart(create_loss_tracking_fig([120.0]), width="stretch")
+            disp_ph.plotly_chart(create_disp_tracking_fig([initial_baseline_disp], target_mm), width="stretch")
+            status_ph.markdown(StatusBadge.for_displacement(initial_baseline_disp, target_mm), unsafe_allow_html=True)
+            porosity_ph.plotly_chart(create_porosity_tracking_fig({
+                "Prox Anchor (%)": [to_porosity(0.35)],
+                "Prox Transition (%)": [to_porosity(0.45)],
+                "Bridge Gap (%)": [to_porosity(0.55)],
+                "Dist Transition (%)": [to_porosity(0.45)],
+                "Dist Anchor (%)": [to_porosity(0.35)]
+            }, target_porosity_pct=(1.0 - req.max_mass)*100.0), width="stretch")
+            grad_ph.plotly_chart(create_gradient_tracking_fig({
+                "dL/dtau_p_anc": [0.0], "dL/dtau_p_tra": [0.0], "dL/dtau_bridge": [0.0],
+                "dL/dtau_d_tra": [0.0], "dL/dtau_d_anc": [0.0], "dL/dsigma_blend": [0.0],
+                "dL/dt_top": [0.0], "dL/dt_bottom": [0.0], "dL/ds_pitch": [0.0],
+                "dL/dL_bridge": [0.0], "dL/dd_cell": [0.0], "dL/dr_fillet": [0.0]
+            }), width="stretch")
+
+            progress_ph.info("🚀 AI Biomechanical Inverse Design Initialized · Formulating Multi-Agent Strategy...")
 
             # Run Stage 1 CAD morphing if enabled and not skipped
             if not skip_cad_morph:
@@ -644,24 +671,14 @@ with col_opt:
             geom_client = None
             try:
                 import httpx as _httpx
-                resp_fem = _httpx.get(f"{fem_url}/health", timeout=0.5)
-                resp_geo = _httpx.get(f"{geom_url}/health", timeout=0.5)
+                resp_fem = _httpx.get(f"{fem_url}/health", timeout=0.2)
+                resp_geo = _httpx.get(f"{geom_url}/health", timeout=0.2)
                 if resp_fem.status_code == 200 and resp_geo.status_code == 200:
                     fem_client = tc.sdk.tesseract.Tesseract.from_url(fem_url)
                     geom_client = tc.sdk.tesseract.Tesseract.from_url(geom_url)
             except Exception:
-                try:
-                    fem_client = tc.sdk.tesseract.Tesseract.from_url(fem_url)
-                    geom_client = tc.sdk.tesseract.Tesseract.from_url(geom_url)
-                except Exception:
-                    fem_client = None
-                    geom_client = None
-
-            def to_porosity(t):
-                # Physically accurate mapping from level-set threshold tau in [0.10, 1.45]
-                # to unit-cell TPMS lattice porosity [54.7%, 88.1%]
-                t_clamped = min(max(float(t), 0.10), 1.45)
-                return 54.7 + ((t_clamped - 0.10) / 1.35) * (88.1 - 54.7)
+                fem_client = None
+                geom_client = None
 
             patience_val = 5 if enable_early_stopping else 9999
             last_tau = None
@@ -673,6 +690,18 @@ with col_opt:
                     st.markdown("#### 🤖 Multi-Agent Collaborative Workflow")
                     agent_chat_ph = st.empty()
                     rendered_messages = []
+                    agent_chat_ph.markdown(
+                        '<div class="glass-card" style="padding: 1rem 1.2rem; border-left: 4px solid #6366f1; background: rgba(15, 23, 42, 0.95); margin-bottom: 0.8rem;">'
+                        '<div style="display: flex; align-items: center; gap: 0.6rem;">'
+                        '<span style="font-size: 1.2rem;">🤖</span>'
+                        '<div style="font-weight: 600; font-size: 0.92rem; color: #f8fafc;">Autonomous Multi-Agent System Deliberating...</div>'
+                        '</div>'
+                        '<div style="font-size: 0.82rem; color: #94a3b8; margin-top: 0.3rem;">'
+                        'Specialist agents are evaluating clinical intent, material kinematics, and JAX adjoint sensitivities.'
+                        '</div>'
+                        '</div>',
+                        unsafe_allow_html=True
+                    )
 
                 def on_opt_step(step_state: dict, step_num: int):
                     loss_val = float(step_state.get("loss", 0.0))
@@ -749,6 +778,16 @@ with col_opt:
                     if event["type"] == "agent_message":
                         msg = event["message"]
                         rendered_messages.append(msg)
+
+                        # Update active progress banner dynamically with the current specialist agent
+                        agent_status_map = {
+                            "clinical_interpreter": f"🧑‍⚕️ Clinical Interpreter: Synthesizing fracture kinematics ({req.objective})...",
+                            "materials_advisor": f"🔬 Materials Advisor: Evaluating Gibson-Ashby scaling for {selected_material.name}...",
+                            "optimization_controller": "⚙️ Optimization Controller: Compiling JAX-FEM adjoint graph on 63,153 DOFs...",
+                            "validation_auditor": "📋 Validation Auditor: Executing ASTM F382 & ISO 7206 virtual verification..."
+                        }
+                        current_status = agent_status_map.get(msg.get("agent_name"), "🤖 Multi-Agent Orchestrator active...")
+                        progress_ph.info(current_status)
 
                         chat_html = ['<div style="display: flex; flex-direction: column; gap: 0.6rem; margin-bottom: 1rem;">']
                         for m in rendered_messages:

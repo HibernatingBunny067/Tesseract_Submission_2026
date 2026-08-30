@@ -2,7 +2,7 @@
 # SPDX-License-Identifier: Apache-2.0
 
 import sys
-from typing import Any
+from typing import Any, Tuple
 import numpy as np
 import jax
 import jax.numpy as jnp
@@ -88,13 +88,8 @@ class OutputSchema(BaseModel):
 # Endpoints
 #
 
-def apply(inputs: InputSchema) -> OutputSchema:
-    t_top_val = float(np.asarray(getattr(inputs, "t_top", 0.0002)))
-    t_bot_val = float(np.asarray(getattr(inputs, "t_bottom", 0.0002)))
-    bridge_s = float(np.asarray(getattr(inputs, "bridge_span", 0.030)))
-    fillet_r = float(np.asarray(getattr(inputs, "fillet_radius", 0.0012)))
-    
-    theta = jnp.array([
+def _extract_theta_array(inputs: InputSchema) -> jnp.ndarray:
+    return jnp.array([
         float(np.asarray(inputs.cell_size)),
         float(np.asarray(inputs.tau_prox_anchor)),
         float(np.asarray(inputs.tau_prox_trans)),
@@ -102,13 +97,16 @@ def apply(inputs: InputSchema) -> OutputSchema:
         float(np.asarray(inputs.tau_dist_trans)),
         float(np.asarray(inputs.tau_dist_anchor)),
         float(np.asarray(inputs.sigma_blend)),
-        t_top_val,
-        t_bot_val,
-        float(np.asarray(inputs.screw_spacing)),
-        bridge_s,
-        fillet_r
-    ])
+        float(np.asarray(getattr(inputs, "t_top", 0.0002))),
+        float(np.asarray(getattr(inputs, "t_bottom", 0.0002))),
+        float(np.asarray(getattr(inputs, "screw_spacing", 0.015))),
+        float(np.asarray(getattr(inputs, "bridge_span", 0.030))),
+        float(np.asarray(getattr(inputs, "fillet_radius", 0.0012)))
+    ], dtype=jnp.float64)
 
+
+def apply(inputs: InputSchema) -> OutputSchema:
+    theta = _extract_theta_array(inputs)
     comp, max_disp, frac_disp = solve_fem_differentiable(theta)
     
     return OutputSchema(
@@ -124,66 +122,28 @@ def vector_jacobian_product(
     vjp_outputs: set[str],
     cotangent_vector: dict[str, np.typing.ArrayLike]
 ) -> dict[str, np.typing.ArrayLike]:
+    theta = _extract_theta_array(inputs)
     
-    t_top_val = float(np.asarray(getattr(inputs, "t_top", 0.0002)))
-    t_bot_val = float(np.asarray(getattr(inputs, "t_bottom", 0.0002)))
-    bridge_s = float(np.asarray(getattr(inputs, "bridge_span", 0.030)))
-    fillet_r = float(np.asarray(getattr(inputs, "fillet_radius", 0.0012)))
-    
-    theta = jnp.array([
-        float(np.asarray(inputs.cell_size)),
-        float(np.asarray(inputs.tau_prox_anchor)),
-        float(np.asarray(inputs.tau_prox_trans)),
-        float(np.asarray(inputs.tau_bridge)),
-        float(np.asarray(inputs.tau_dist_trans)),
-        float(np.asarray(inputs.tau_dist_anchor)),
-        float(np.asarray(inputs.sigma_blend)),
-        t_top_val,
-        t_bot_val,
-        float(np.asarray(inputs.screw_spacing)),
-        bridge_s,
-        fillet_r
-    ])
-    
-    # Trace solve_fem_differentiable and compute the VJP!
     _, vjp_func = jax.vjp(solve_fem_differentiable, theta)
     
-    # Pack cotangents corresponding to the outputs
     cotangents = (
-        jnp.array(cotangent_vector.get("compliance", 0.0)),
-        jnp.array(cotangent_vector.get("max_displacement", 0.0)),
-        jnp.array(cotangent_vector.get("fracture_displacement", 0.0))
+        jnp.array(float(np.asarray(cotangent_vector.get("compliance", 0.0)))),
+        jnp.array(float(np.asarray(cotangent_vector.get("max_displacement", 0.0)))),
+        jnp.array(float(np.asarray(cotangent_vector.get("fracture_displacement", 0.0))))
     )
     
-    # Pull back through JAX-FEM adjoint
     (grad_theta,) = vjp_func(cotangents)
     grad_np = np.asarray(grad_theta)
     
     out_grads = {}
-    if "cell_size" in vjp_inputs:
-        out_grads["cell_size"] = np.array(grad_np[0], dtype=np.float64)
-    if "tau_prox_anchor" in vjp_inputs:
-        out_grads["tau_prox_anchor"] = np.array(grad_np[1], dtype=np.float64)
-    if "tau_prox_trans" in vjp_inputs:
-        out_grads["tau_prox_trans"] = np.array(grad_np[2], dtype=np.float64)
-    if "tau_bridge" in vjp_inputs:
-        out_grads["tau_bridge"] = np.array(grad_np[3], dtype=np.float64)
-    if "tau_dist_trans" in vjp_inputs:
-        out_grads["tau_dist_trans"] = np.array(grad_np[4], dtype=np.float64)
-    if "tau_dist_anchor" in vjp_inputs:
-        out_grads["tau_dist_anchor"] = np.array(grad_np[5], dtype=np.float64)
-    if "sigma_blend" in vjp_inputs:
-        out_grads["sigma_blend"] = np.array(grad_np[6], dtype=np.float64)
-    if "t_top" in vjp_inputs:
-        out_grads["t_top"] = np.array(grad_np[7] if len(grad_np) > 7 else 0.0, dtype=np.float64)
-    if "t_bottom" in vjp_inputs:
-        out_grads["t_bottom"] = np.array(grad_np[8] if len(grad_np) > 8 else 0.0, dtype=np.float64)
-    if "screw_spacing" in vjp_inputs:
-        out_grads["screw_spacing"] = np.array(grad_np[9] if len(grad_np) > 9 else 0.0, dtype=np.float64)
-    if "bridge_span" in vjp_inputs:
-        out_grads["bridge_span"] = np.array(grad_np[10] if len(grad_np) > 10 else 0.0, dtype=np.float64)
-    if "fillet_radius" in vjp_inputs:
-        out_grads["fillet_radius"] = np.array(grad_np[11] if len(grad_np) > 11 else 0.0, dtype=np.float64)
+    param_keys = [
+        "cell_size", "tau_prox_anchor", "tau_prox_trans", "tau_bridge",
+        "tau_dist_trans", "tau_dist_anchor", "sigma_blend", "t_top",
+        "t_bottom", "screw_spacing", "bridge_span", "fillet_radius"
+    ]
+    for idx, key in enumerate(param_keys):
+        if key in vjp_inputs:
+            out_grads[key] = np.array(grad_np[idx], dtype=np.float64)
         
     return out_grads
 

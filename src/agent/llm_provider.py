@@ -83,10 +83,8 @@ class GeminiProvider(LLMProvider):
                 return ""
             except Exception as e:
                 last_err = e
-                print(f"[GeminiProvider] Model '{m}' returned: {e}. Trying next model...")
                 continue
 
-        print(f"[GeminiProvider] All Gemini models failed. Last error: {last_err}")
         raise last_err or RuntimeError("Gemini generate failed")
 
 
