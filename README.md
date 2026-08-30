@@ -489,7 +489,7 @@ echo "GEMINI_API_KEY=your_gemini_api_key_here" >> .env
 > **Medical-Grade Investigational Caution:** This AI platform synthesizes patient-specific TPMS orthopaedic metamaterial constructs via in-silico surrogate mechanics, differentiable finite element simulation (JAX-FEM), and automated ASTM F382 / ISO 7206 virtual verification. In-silico predictions are for **computational surgical planning and biomechanical research only** and must be validated through certified physical mechanical testing and clinical surgical review prior to in-vivo additive manufacturing.
 
 > [!NOTE]
-> **Performance Advisory (Docker vs. Bare-Metal Execution):** While Docker Compose deployment (`docker compose up` / `./run_docker.sh`) guarantees a 100% reproducible and isolated microservices environment, container virtualization (especially on macOS/Windows hypervisors) incurs CPU translation, nested memory overhead, and HTTP REST serialization latency during JAX JIT compilation and PETSc sparse factorizations. Local bare-metal execution (`./run.sh` / `.\run.ps1` / `run.bat`) is significantly faster ($3\text{--}5\times$ speedup) as it executes directly on host hardware.
+> **Performance Advisory (Docker vs. Bare-Metal Execution):** While Docker Compose deployment (`docker compose up` / `./scripts/run_docker.sh`) guarantees a 100% reproducible and isolated microservices environment, container virtualization (especially on macOS/Windows hypervisors) incurs CPU translation, nested memory overhead, and HTTP REST serialization latency during JAX JIT compilation and PETSc sparse factorizations. Local bare-metal execution (`./scripts/run.sh` / `.\scripts\run.ps1` / `scripts\run.bat`) is significantly faster ($3\text{--}5\times$ speedup) as it executes directly on host hardware.
 
 ### 8.4 Option A: Docker Compose Deployment (Recommended for Submission)
 Launch the complete multi-container stack with a single universal command or native scripts:
@@ -501,18 +501,18 @@ Launch the complete multi-container stack with a single universal command or nat
 
 * **macOS / Linux / Git Bash / WSL:**
   ```bash
-  chmod +x run_docker.sh
-  ./run_docker.sh
+  chmod +x scripts/run_docker.sh
+  ./scripts/run_docker.sh
   ```
 
 * **Windows PowerShell:**
   ```powershell
-  .\run_docker.ps1
+  .\scripts\run_docker.ps1
   ```
 
 * **Windows Command Prompt / Double-Click:**
   ```cmd
-  run_docker.bat
+  scripts\run_docker.bat
   ```
 
 Open your browser at **`http://localhost:8501`**.
@@ -561,19 +561,19 @@ pip install -r REQUIREMENTS.txt
 
 * **macOS / Linux / Git Bash / WSL:**
   ```bash
-  chmod +x run.sh
-  ./run.sh
+  chmod +x scripts/run.sh
+  ./scripts/run.sh
   ```
 
 * **Windows PowerShell:**
   ```powershell
-  .\run.ps1
+  .\scripts\run.ps1
   # Alternatively: streamlit run app.py
   ```
 
 * **Windows Command Prompt / Double-Click:**
   ```cmd
-  run.bat
+  scripts\run.bat
   ```
 
 * **Universal Direct Launch (Any OS / Any Terminal):**
@@ -637,14 +637,15 @@ python tests/test_agent_system.py
 ```text
 Tesseract_Submission_2026/
 ├── app.py                         <-- Streamlit interactive co-design dashboard
-├── run.sh                         <-- POSIX launch script (macOS / Linux / Git Bash)
-├── run.bat                        <-- Windows Command Prompt batch launcher
-├── run.ps1                        <-- Windows PowerShell launcher
-├── run_docker.sh                  <-- POSIX Docker launcher (macOS / Linux / Git Bash)
-├── run_docker.bat                 <-- Windows Command Prompt Docker batch launcher
-├── run_docker.ps1                 <-- Windows PowerShell Docker launcher
 ├── docker-compose.yml             <-- 3-tier microservice container orchestration
 ├── REQUIREMENTS.txt               <-- Python package dependencies
+├── scripts/                       <-- Cross-platform execution launchers
+│   ├── run.sh                     <-- POSIX launch script (macOS / Linux / Git Bash)
+│   ├── run.bat                    <-- Windows Command Prompt batch launcher
+│   ├── run.ps1                    <-- Windows PowerShell launcher
+│   ├── run_docker.sh              <-- POSIX Docker launcher (macOS / Linux / Git Bash)
+│   ├── run_docker.bat             <-- Windows Command Prompt Docker batch launcher
+│   └── run_docker.ps1             <-- Windows PowerShell Docker launcher
 ├── src/
 │   ├── agent/                     <-- LangGraph multi-agent state machine & prompts
 │   │   ├── agent.py               <-- Top-level prompt dispatch, gibberish guardrail & NLP parser

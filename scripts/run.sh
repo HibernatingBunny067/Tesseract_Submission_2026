@@ -4,7 +4,9 @@
 set -m
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-VENV_STREAMLIT="$SCRIPT_DIR/.venv/bin/streamlit"
+ROOT_DIR="$(cd "$SCRIPT_DIR/.." && pwd)"
+VENV_STREAMLIT="$ROOT_DIR/.venv/bin/streamlit"
+APP_PATH="$ROOT_DIR/app.py"
 
 cleanup() {
     # Disable trap to avoid recursive loops
@@ -43,7 +45,8 @@ fi
 echo "🚀 Launching Tesseract BioMechanics on http://localhost:8501..."
 
 # Run in background so bash immediately receives and handles Ctrl+C without lag
-"$RUN_CMD" run "$SCRIPT_DIR/app.py" --server.port 8501 --server.headless false &
+cd "$ROOT_DIR"
+"$RUN_CMD" run "$APP_PATH" --server.port 8501 --server.headless false &
 APP_PID=$!
 
 # Wait for process (will be unblocked instantly on Ctrl+C)

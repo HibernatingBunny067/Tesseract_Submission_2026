@@ -1,5 +1,7 @@
 @echo off
 setlocal
+set "SCRIPT_DIR=%~dp0"
+cd /d "%SCRIPT_DIR%.."
 echo 🚀 Launching Tesseract BioMechanics on http://localhost:8501...
 
 if exist ".venv\Scripts\streamlit.exe" (
