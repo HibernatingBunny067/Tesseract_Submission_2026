@@ -221,22 +221,22 @@ def run_optimization(
     
     value_and_grad_fn = jax.value_and_grad(loss_fn, has_aux=True)
     
-    if "rigid" in objective.lower():
+    if target_fracture_displacement < 0.00016 or "rigid" in objective.lower() or "athlete" in objective.lower():
         default_anc = 0.20
         default_tra = 0.25
         default_bri = 0.30
-    elif "osteoporotic" in objective.lower():
-        default_anc = 0.50
-        default_tra = 0.65
+    elif target_fracture_displacement > 0.00024 or "osteoporotic" in objective.lower() or "elderly" in objective.lower() or "compliant" in objective.lower() or "periprosthetic" in objective.lower():
+        default_anc = 0.40
+        default_tra = 0.55
         default_bri = 0.80
     else:
         default_anc = 0.35
         default_tra = 0.45
         default_bri = 0.55
         
-    init_anc = float(init_tau_anchors) if init_tau_anchors is not None else default_anc
-    init_tra = float(init_tau_transitions) if init_tau_transitions is not None else default_tra
-    init_bri = float(init_tau_bridge) if init_tau_bridge is not None else default_bri
+    init_anc = float(init_tau_anchors) if (init_tau_anchors is not None and 0.10 <= float(init_tau_anchors) <= 1.45) else default_anc
+    init_tra = float(init_tau_transitions) if (init_tau_transitions is not None and 0.10 <= float(init_tau_transitions) <= 1.45) else default_tra
+    init_bri = float(init_tau_bridge) if (init_tau_bridge is not None and 0.10 <= float(init_tau_bridge) <= 1.45) else default_bri
         
     # Scale-balanced 12-parameter vector:
     theta = jnp.array([

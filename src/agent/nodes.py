@@ -241,6 +241,27 @@ def materials_advisor_node(state: DesignState) -> dict:
         else:
             result["tpms_type"] = "Schwarz Primitive (P)"
 
+        # Validate and sanitize initial_params
+        init_p = result.get("initial_params", {}) or {}
+        target_m = clinical.get("target_micro_motion_m", 0.0002)
+        default_bri = 0.35 if target_m < 0.00016 else (0.80 if target_m > 0.00024 else 0.55)
+        
+        # Sanitize tau values (must be dimensionless in [0.15, 1.40])
+        for tau_k, def_v in [("tau_bridge", default_bri), ("tau_anchors", 0.20), ("tau_transitions", 0.35)]:
+            val = init_p.get(tau_k)
+            if val is not None:
+                try:
+                    val_f = float(val)
+                    if val_f < 0.10 or val_f > 1.45:
+                        init_p[tau_k] = def_v
+                    else:
+                        init_p[tau_k] = min(max(val_f, 0.15), 1.40)
+                except Exception:
+                    init_p[tau_k] = def_v
+            else:
+                init_p[tau_k] = def_v
+        result["initial_params"] = init_p
+
         reasoning = result.get("material_reasoning", "Material selection complete.")
         messages.append(create_message(
             "materials_advisor",
@@ -335,6 +356,19 @@ def optimization_controller_node(state: DesignState) -> dict:
         "fem_client": state.get("fem_client"),
         "geometry_client": state.get("geometry_client"),
     }
+
+    # Sanitize initial tau parameters (must be in [0.10, 1.45])
+    for tau_k in ("init_tau_bridge", "init_tau_anchors", "init_tau_transitions"):
+        val = opt_kwargs.get(tau_k)
+        if val is not None:
+            try:
+                val_f = float(val)
+                if val_f < 0.10 or val_f > 1.45:
+                    opt_kwargs[tau_k] = None
+                else:
+                    opt_kwargs[tau_k] = val_f
+            except Exception:
+                opt_kwargs[tau_k] = None
 
     # If this is a correction run, apply adjustments
     if corrections and attempt > 1:

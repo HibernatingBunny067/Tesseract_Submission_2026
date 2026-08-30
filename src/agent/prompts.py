@@ -54,15 +54,15 @@ Apply these selection heuristics:
 You must output a JSON object with exactly the following keys:
 - material_name: (str) Exact string from database: 'Ti-6Al-4V ELI (Grade 5)' or '316L Stainless Steel'.
 - tpms_type: (str) Exact string: 'Schwarz Primitive (P)', 'Schoen Gyroid (G)', or 'Schwarz Diamond (D)'.
-- initial_params: (dict) Initial parameter values all in SI meters, including:
-  - cell_size_m: (float)
-  - tau_bridge: (float)
-  - tau_anchors: (float)
-  - tau_transitions: (float)
-  - skin_thickness_m: (float)
-  - screw_spacing_m: (float)
-  - bridge_span_m: (float)
-  - fillet_radius_m: (float)
+- initial_params: (dict) Initial parameter values:
+  - cell_size_m: (float in SI meters, e.g. 0.005)
+  - tau_bridge: (float dimensionless level-set threshold in range [0.15, 1.40], e.g. 0.55 for standard, 0.85 for high compliance, 0.30 for rigid)
+  - tau_anchors: (float dimensionless level-set threshold in range [0.15, 1.40], e.g. 0.20 for dense anchor)
+  - tau_transitions: (float dimensionless level-set threshold in range [0.15, 1.40], e.g. 0.35)
+  - skin_thickness_m: (float in SI meters, e.g. 0.0005)
+  - screw_spacing_m: (float in SI meters, e.g. 0.0145)
+  - bridge_span_m: (float in SI meters, e.g. 0.030)
+  - fillet_radius_m: (float in SI meters, e.g. 0.0012)
 - material_reasoning: (str) 2-3 sentences explaining your material and TPMS architecture selection based on the heuristics provided.
 """
 

@@ -140,6 +140,7 @@ if is_agent_mode:
     
     CLINICAL_PRESETS: Dict[str, str] = {
         "Callus Stimulation (Default)": "I need a compliant Titanium plate that allows 0.2mm of micro-motion at the fracture site to stimulate callus formation, while keeping the implant as light as possible.",
+        "⚠️ Stress Test: Periprosthetic Refracture": "A 76-year-old morbidly obese female on chronic bisphosphonate therapy and renal dialysis presents with an atypical periprosthetic femur refracture adjacent to a loosened total knee arthroplasty stem. She previously underwent radiation therapy for a proximal femoral osteosarcoma, leaving the surrounding cortex severely devitalized and osteopenic. Her surgeon requires a fixation construct that promotes aggressive biological healing in this compromised bone stock while surviving the extreme cyclic loading from her elevated body weight during early weight-bearing rehabilitation. The construct must accommodate the irradiated cortex's inability to remodel normally.",
         "Elderly Osteoporotic Patient": "I need a highly porous Titanium plate for an elderly osteoporotic patient that allows 0.30mm of micro-motion, minimizing stress shielding and maximizing porosity.",
         "Young Athlete High-Impact Trauma": "I need a rigid, high-strength Stainless Steel plate for a young athlete that restricts micro-motion to 0.12mm to ensure stable fixation.",
         "Cost-Effective Trauma Fixation": "I need an affordable, cost-effective 316L Stainless Steel plate that maintains 0.18mm micro-motion with high ductility."
@@ -237,10 +238,16 @@ if is_agent_mode:
     rec_lower = getattr(req, "recommended_tpms", "").lower()
     if "gyroid" in rec_lower:
         tpms_type_code = "gyroid"
+        tpms_type_name = "Schoen Gyroid (G)"
+        tpms_choice = "Schoen Gyroid (G) · High Shear Strength"
     elif "diamond" in rec_lower:
         tpms_type_code = "diamond"
+        tpms_type_name = "Schwarz Diamond (D)"
+        tpms_choice = "Schwarz Diamond (D) · High Torsion Grip"
     else:
         tpms_type_code = "primitive"
+        tpms_type_name = "Schwarz Primitive (P)"
+        tpms_choice = "Schwarz Primitive (P) · High Permeability"
 
 else:
     # Direct Parametric Mode: Full manual control for engineers
@@ -299,6 +306,7 @@ else:
         clinical_rationale=f"Manual parametric optimization: {selected_material_name} with {tpms_type_name} target motion {target_disp_mm:.2f}mm."
     )
 
+h_tpms_mm = max(6.0 - t_top_mm - t_bot_mm, 1.0)
 fillet_radius_m = fillet_radius_mm / 1000.0
 t_top_m = t_top_mm / 1000.0
 t_bot_m = t_bot_mm / 1000.0
@@ -1162,6 +1170,8 @@ if current_results is not None and current_results.get("last_tau") is not None:
             )
 
 # Optimization history log table
+if "run_history" not in st.session_state:
+    st.session_state.run_history = []
 if len(st.session_state.run_history) > 0:
     st.markdown("---")
     st.markdown(section_label("📋", "Optimization & Verification Experimentation History"), unsafe_allow_html=True)
