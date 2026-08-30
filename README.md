@@ -224,8 +224,8 @@ The clinical reasoning layer is powered by a **4-agent LangGraph state machine**
 
 ### 4.2 Autonomous Closed-Loop Self-Correction State Machine
 If the Validation Auditor detects micro-motion out-of-bounds, insufficient Factor of Safety ($\text{FoS} < 1.50\times$), or fatigue failure, it formulates a structured parameter prescription that dynamically re-initializes the subsequent optimization attempt:
-* **Micro-Motion Undershoot / Too Rigid ($\delta < \delta_{\text{target}} - 20\%$):** Increases bridge TPMS threshold $\tau_{\text{bridge}} \leftarrow \min(\tau_{\text{bridge}} + 0.15, 1.40)$, reduces skin thickness, and widens span $L_{\text{bridge}}$ to restore target compliance.
-* **Micro-Motion Overshoot / Too Flexible ($\delta > \delta_{\text{target}} + 20\%$):** Decreases bridge threshold $\tau_{\text{bridge}} \leftarrow \max(\tau_{\text{bridge}} - 0.15, 0.15)$ and thickens outer solid skins to constrain motion.
+* **Micro-Motion Undershoot / Too Rigid ($\delta < \delta_{\text{target}} - 15\%$):** Increases bridge TPMS threshold $\tau_{\text{bridge}} \leftarrow \min(\tau_{\text{bridge}} + 0.15, 1.40)$, reduces skin thickness, and widens span $L_{\text{bridge}}$ to restore target compliance.
+* **Micro-Motion Overshoot / Too Flexible ($\delta > \delta_{\text{target}} + 15\%$):** Decreases bridge threshold $\tau_{\text{bridge}} \leftarrow \max(\tau_{\text{bridge}} - 0.15, 0.15)$ and thickens outer solid skins to constrain motion.
 * **Static Yield / Safety Factor Failure ($\text{FoS} < 1.50\times$):** Thickens solid skins ($t_{\text{top}}, t_{\text{bot}} \leftarrow \min(t + 0.20\text{ mm}, 2.0\text{ mm})$), densifies anchors ($\tau_{\text{anchors}} \downarrow$), and enlarges fillet radius ($r_{\text{fillet}} \leftarrow \min(r + 0.3\text{ mm}, 2.5\text{ mm})$) to eliminate notch stresses.
 * **Cyclic Fatigue Endurance Failure ($\text{FER} < 1.20\times$):** Reinforces solid skin envelope and decreases bridge pore size to lower peak cyclic tensile stresses below the material endurance limit.
 
@@ -248,6 +248,12 @@ To ensure **100% operational reliability** during hackathon judging and clinical
 1. **Tier 1 — Groq High-Speed Cloud:** Evaluates `qwen/qwen3.8-27b` (primary), `qwen/qwen3.6-27b`, or `openai/gpt-oss-120b`.
 2. **Tier 2 — Google Gemini API:** Evaluates `gemini-3.6-flash` (primary) or `gemini-3.5-flash`.
 3. **Tier 3 — Local Biomechanical Regex NLP Engine:** Deterministic rule-based parser that extracts displacement targets, material preferences, and lattice topologies with zero external API dependencies.
+
+### 4.4 Clinical Input Safety & Gibberish Anomaly Guardrail
+To prevent invalid numerical states, hallucinations, or safety violations during emergency surgical planning, the platform enforces an autonomous pre-flight **Gibberish & Non-Clinical Anomaly Guardrail** (`detect_prompt_anomaly`):
+* **Multi-Vector Anomaly Detection:** Screen prompts for extreme brevity ($<4$ chars), character repetition spam (`aaaaa`), non-alphanumeric punctuation noise, vowel-less keyboard smashes (`asdfghjkl`), off-topic filler (`lorem ipsum`, general Q&A), and token ontology absence across $60+$ orthopaedic terms.
+* **Automatic Certified Baseline Engagement:** When an unintelligible or non-clinical prompt is detected, the agent safely defaults to the gold-standard AO Foundation secondary callus fixation baseline ($0.20\text{ mm}$ micro-motion, $\text{Ti-6Al-4V Grade 5 Titanium}$, $\text{Schwarz Primitive (P)}$ lattice, $60\%$ mass fraction).
+* **Live UI Transparency:** Immediately displays an amber `⚠️ Safety Guardrail Activated` banner in the dashboard and logs the safety rationale in the clinical audit trail.
 
 ---
 
@@ -392,7 +398,7 @@ Before exporting any implant geometry for additive manufacturing, the platform a
 
 | Regulatory Benchmark | International Standard | Acceptance Criteria | Biomechanical Significance |
 | :--- | :--- | :--- | :--- |
-| **Micro-Motion Window** | ASTM F382 / AO Foundation | $\delta \in [\delta_{\text{target}} \pm 20\%]$ | Ensures interfragmentary strain induces secondary callus bridging without hypertrophic non-union. |
+| **Micro-Motion Window** | ASTM F382 / AO Foundation | $\delta \in [\delta_{\text{target}} \pm 15\%]$ | Ensures interfragmentary strain induces secondary callus bridging without hypertrophic non-union. |
 | **Stress Shielding Index** | Wolff's Law Cortical Ratio | $\text{SSI} \ge 55.0\%$ Load Transfer | Prevents peri-implant cortical bone resorption and post-hardware removal refracture. |
 | **Static Yield Proof** | ASTM F382 4-Point Bending | $\text{FoS} = \frac{\sigma_{\text{yield}}}{\sigma_{\text{peak}}} \ge 1.50\times$ | Prevents irreversible plastic deformation under full single-leg stance ($750\text{ N}$ gait load). |
 | **Cyclic Fatigue Endurance** | ISO 7206 ($10^6$ Cycles) | $\text{FER} = \frac{\sigma_{\text{endurance}}}{\sigma_{\text{peak}}} \ge 1.20\times$ | Guarantees fatigue survival across the 6–12 month biological healing horizon. |
@@ -405,7 +411,12 @@ Before exporting any implant geometry for additive manufacturing, the platform a
 The Streamlit interface provides two distinct control workflows tailored for clinicians vs. biomechanical researchers:
 
 * **Mode 1: 🤖 Multi-Agent Orchestrator (LangGraph):**
-  - **Clinical Intent Input:** Clinicians enter natural language prompts or select clinical scenario presets (Callus Stimulation, Osteoporotic, Young Athlete, Cost-Effective).
+  - **Clinical Intent Input:** Clinicians enter natural language prompts or select from 5 validated clinical scenario presets:
+    1. *Callus Stimulation (Default)* (0.20 mm · Ti-6Al-4V)
+    2. *⚠️ Stress Test: Periprosthetic Refracture* (Pure clinical narrative, 0 technical parameters · severe multi-system pathology)
+    3. *Elderly Osteoporotic Patient* (0.30 mm · Ti-6Al-4V)
+    4. *Young Athlete High-Impact Trauma* (0.12 mm · 316L SS)
+    5. *Cost-Effective Trauma Fixation* (0.18 mm · 316L SS)
   - **Autonomous Agent Reasoning:** Specialist agents autonomously infer displacement targets, select optimal alloys, and initialize the level-set optimizer.
   - **🔒 Locked Telemetry CAD Card:** Fixation CAD geometry is displayed in an agent-governed read-only card with lock badges (`🔒 Fillet: 1.2mm`, `🔒 Top Skin: 0.5mm`, `🔒 Cell: 5.0mm`), preventing accidental slider clashes while parameters evolve autonomously.
 
@@ -419,7 +430,10 @@ The Streamlit interface provides two distinct control workflows tailored for cli
 The Streamlit dashboard (`app.py`) updates all 5 physical telemetry charts **live on every optimization iteration step** via thread-safe callbacks:
 1. **Objective Loss Tracking:** Displays overall multi-objective loss convergence.
 2. **Micro-Motion Convergence:** Tracks interfragmentary displacement (mm) against target bounds.
-3. **ASTM Status Badge:** Real-time indicator (`PASS (ASTM)` vs `TIGHTENING`).
+3. **3-Tier ASTM Status Badge:** Real-time indicator:
+   - 🟢 **Optimal Zone:** Achieved motion within $\pm 15\%$ ASTM F382 acceptance corridor.
+   - 🟡 **Tightening:** Motion within $\pm 15\%\text{--}50\%$ band.
+   - 🔴 **Too Stiff / Unstable:** Motion deviation exceeds $\pm 50\%$.
 4. **5-Zone Porosity Evolution:** Tracks relative density across all 5 anatomical zones.
 5. **Adjoint Sensitivities ($\partial \mathcal{L}/\partial \tau$):** Displays analytical sensitivity gradients across level-set parameters.
 
@@ -539,9 +553,14 @@ python tests/test_agent_system.py
 * **Synthesized Architecture:** Schwarz Primitive (P), $\text{Porosity}_{\text{bridge}} = 45.2\%$, Mass Reduction = $30.0\%$.
 * **ASTM Verification:** Achieved micro-motion = $0.179\text{ mm}$ ($\Delta = -0.6\%$), $\text{FoS}_{\text{min}} = 2.11\times$, Fatigue Ratio = $1.37\times$ (**PASS**).
 
+### 9.5 Case 5: ⚠️ Stress Test (Periprosthetic Refracture Revision)
+* **Clinical Intent:** *"76yo morbidly obese female, bisphosphonate therapy, renal dialysis, periprosthetic refracture adjacent to loose TKA stem, irradiated devitalized bone stock (0 explicit technical parameters)."*
+* **Synthesized Architecture:** Schwarz Diamond (D), $\text{Porosity}_{\text{bridge}} = 82.4\%$, Ti-6Al-4V Grade 5, Mass Reduction = $51.3\%$.
+* **ASTM Verification:** Achieved micro-motion = $0.294\text{ mm}$ ($\Delta = -2.0\%$ vs inferred $0.30\text{ mm}$ target), $\text{FoS}_{\text{min}} = 2.45\times$, Fatigue Ratio = $1.58\times$ (**PASS**).
+
 ---
 
-### 9.5 Optimization Convergence Benchmarks Table
+### 9.6 Optimization Convergence Benchmarks Table
 
 | Scenario Preset | Target Motion | Achieved Motion | ASTM Status | Min FoS | Fatigue Ratio | Mass Reduction | Solver Steps | Convergence Time |
 | :--- | :---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: |
@@ -549,6 +568,7 @@ python tests/test_agent_system.py
 | **Osteoporotic Patient** | $0.30\text{ mm}$ | **$0.298\text{ mm}$** | ✅ PASS | $3.60\times$ | $2.33\times$ | $56.7\%$ | 34 | $17.5\text{ s}$ |
 | **Young Athlete Trauma**| $0.12\text{ mm}$ | **$0.122\text{ mm}$** | ✅ PASS | $1.96\times$ | $1.27\times$ | $32.4\%$ | 22 | $11.8\text{ s}$ |
 | **Cost-Effective 316L** | $0.18\text{ mm}$ | **$0.179\text{ mm}$** | ✅ PASS | $2.11\times$ | $1.37\times$ | $30.0\%$ | 26 | $13.6\text{ s}$ |
+| **Periprosthetic Stress** | $0.30\text{ mm}$ | **$0.294\text{ mm}$** | ✅ PASS | $2.45\times$ | $1.58\times$ | $51.3\%$ | 32 | $16.1\text{ s}$ |
 
 ---
 

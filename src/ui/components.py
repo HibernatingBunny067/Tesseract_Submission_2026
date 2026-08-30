@@ -51,7 +51,7 @@ class StatusBadge:
     def tightening(disp_mm: float) -> str:
         return (
             f'<div class="status-badge status-warning">'
-            f'🟡 Tightening ({disp_mm:.3f}mm) — Outside ±20% Target Band</div>'
+            f'🟡 Tightening ({disp_mm:.3f}mm) — Outside ±15% Target Band</div>'
         )
 
     @staticmethod
@@ -70,8 +70,8 @@ class StatusBadge:
 
     @staticmethod
     def for_displacement(disp_mm: float, target_mm: float) -> str:
-        lower_optimal = target_mm * 0.80   # ±20% ASTM F382 acceptance band
-        upper_optimal = target_mm * 1.20
+        lower_optimal = target_mm * 0.85   # ±15% ASTM F382 acceptance band
+        upper_optimal = target_mm * 1.15
         lower_danger  = target_mm * 0.50   # extreme deviation thresholds
         upper_danger  = target_mm * 1.50
         if disp_mm < lower_danger:

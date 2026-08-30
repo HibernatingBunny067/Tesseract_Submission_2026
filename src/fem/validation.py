@@ -59,14 +59,14 @@ def run_insilico_validation_suite(
     # Target: Achieved micro-motion must lie within +/- 15% of physiological target
     # -----------------------------------------------------------------------
     disp_error_pct = abs(achieved_mm - target_mm) / (target_mm + 1e-9) * 100.0
-    motion_passed = disp_error_pct <= 20.0
+    motion_passed = disp_error_pct <= 15.0
     
     test_1 = TestResult(
         name="Micro-Motion Target Verification",
         standard="ASTM F382 / AO Foundation",
         metric_name="Fracture Gap Motion (Δu)",
         measured_value=f"{achieved_mm:.3f} mm",
-        target_criteria=f"{target_mm:.2f} mm ± 20%",
+        target_criteria=f"{target_mm:.2f} mm ± 15%",
         passed=motion_passed,
         safety_margin=f"{disp_error_pct:.1f}% deviation",
         clinical_implication=(

@@ -189,9 +189,21 @@ if is_agent_mode:
     s_spac_val = getattr(req, 'screw_spacing_mm', 15.0)
 
     if req:
+        if getattr(req, "is_gibberish", False):
+            warn_txt = getattr(req, "warning_message", "Non-clinical input detected.")
+            st.sidebar.markdown(f"""
+            <div class="glass-card" style="padding: 0.75rem; margin-top: 0.5rem; font-size: 0.78rem; border-left: 3px solid #f59e0b; background: rgba(245, 158, 11, 0.12);">
+                <div style="color: #fbbf24; font-weight: 700; margin-bottom: 0.25rem;">⚠️ Safety Guardrail Activated</div>
+                <div style="color: #fde68a; font-size: 0.73rem; margin-bottom: 0.3rem;">{warn_txt}</div>
+                <div style="color: #94a3b8; font-size: 0.70rem;"><i>Safely applied certified clinical baseline (Callus Stimulation · 0.20 mm).</i></div>
+            </div>
+            """, unsafe_allow_html=True)
+
+        badge_color = "#f59e0b" if getattr(req, "is_gibberish", False) else "#4ade80"
+        badge_text = "⚠️ Default Safety Baseline Engaged" if getattr(req, "is_gibberish", False) else "✓ Requirements Parsed"
         st.sidebar.markdown(f"""
-        <div class="glass-card" style="padding: 0.8rem; margin-top: 0.5rem; font-size: 0.8rem; border-left: 3px solid #6366f1;">
-            <div style="color: #4ade80; font-weight: 600; margin-bottom: 0.3rem;">✓ Requirements Parsed</div>
+        <div class="glass-card" style="padding: 0.8rem; margin-top: 0.5rem; font-size: 0.8rem; border-left: 3px solid {'#f59e0b' if getattr(req, 'is_gibberish', False) else '#6366f1'};">
+            <div style="color: {badge_color}; font-weight: 600; margin-bottom: 0.3rem;">{badge_text}</div>
             <div><b>Objective:</b> <span style="color: #a78bfa;">{req.objective}</span></div>
             <div><b>Target Micro-Motion:</b> <span style="color: #f8fafc; font-weight: 600;">{req.target_fracture_displacement*1000:.2f} mm</span> ({req.target_fracture_displacement*1e6:.0f} µm)</div>
             <div><b>Upper Mass Limit:</b> <span style="color: #f8fafc;">{req.max_mass*100:.0f}%</span></div>
@@ -802,7 +814,7 @@ with col_opt:
                     optimized_mass = solid_mass * (1.0 - (avg_por / 100.0) * 0.85)
                     achieved_m = opt_results["final_disp_mm"]
                     err_pct = abs(achieved_m - target_mm) / (target_mm + 1e-9) * 100.0
-                    status_str = "✅ PASS (ASTM)" if err_pct <= 20.0 else "⚠️ TIGHTENING"
+                    status_str = "✅ PASS (ASTM)" if err_pct <= 15.0 else "⚠️ TIGHTENING"
 
                     st.session_state.run_history.append({
                         "Timestamp": datetime.datetime.now().strftime("%H:%M:%S"),
@@ -932,7 +944,7 @@ with col_opt:
                 optimized_mass = solid_mass * (1.0 - (avg_por / 100.0) * 0.85)
                 achieved_m = opt_results["final_disp_mm"]
                 err_pct = abs(achieved_m - target_mm) / (target_mm + 1e-9) * 100.0
-                status_str = "✅ PASS (ASTM)" if err_pct <= 20.0 else "⚠️ TIGHTENING"
+                status_str = "✅ PASS (ASTM)" if err_pct <= 15.0 else "⚠️ TIGHTENING"
                 
                 st.session_state.run_history.append({
                     "Timestamp": datetime.datetime.now().strftime("%H:%M:%S"),

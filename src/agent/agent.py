@@ -41,6 +41,107 @@ class DesignRequest(BaseModel):
     fillet_radius_mm: float = Field(default=1.2, description="Edge fillet radius in mm")
     screw_spacing_mm: float = Field(default=15.0, description="Screw hole pitch/spacing in mm")
     clinical_rationale: str = Field(default="", description="Clinical biomechanical reasoning")
+    is_gibberish: bool = Field(default=False, description="True if prompt was identified as gibberish or off-topic")
+    warning_message: Optional[str] = Field(default=None, description="Warning message if non-clinical input was detected")
+
+
+def detect_prompt_anomaly(prompt: str) -> tuple[bool, str]:
+    """
+    Analyzes prompt for gibberish, non-clinical intent, keyboard smashes, or extreme brevity.
+    Returns (is_anomalous: bool, reason_message: str).
+    """
+    if not prompt or not prompt.strip():
+        return True, "Empty or blank prompt provided."
+
+    clean = prompt.strip()
+    clean_lower = clean.lower()
+
+    # 1. Extreme brevity
+    if len(clean) < 4:
+        return True, f"Prompt '{clean}' is too short (< 4 characters) to extract clinical intent."
+
+    words = [w for w in re.split(r"\s+", clean_lower) if w]
+    
+    # 2. Repeated character spam (e.g. "aaaaa", "zzzzzz", "asdasdasd")
+    if re.search(r"(.)\1{4,}", clean_lower):
+        return True, "Repetitive character spam detected."
+
+    # 3. Non-alphanumeric noise ratio
+    alpha_chars = sum(1 for c in clean if c.isalnum())
+    if len(clean) >= 6 and (alpha_chars / len(clean)) < 0.40:
+        return True, "Excessive special characters/punctuation noise detected."
+
+    # 4. Long words without vowels (keyboard smash e.g. "asdfghjkl", "qwrtpsdfg")
+    vowel_pattern = re.compile(r"[aeiouy]")
+    for w in words:
+        clean_w = re.sub(r"[^a-z]", "", w)
+        if len(clean_w) >= 6 and not vowel_pattern.search(clean_w):
+            return True, f"Unintelligible consonant sequence '{w}' detected."
+
+    # 5. Common known off-topic / filler strings
+    off_topic_patterns = [
+        "lorem ipsum", "dolor sit amet", "asdf", "qwerty", "foo bar", "test test",
+        "hello world", "drop table", "select * from", "make me a", "write a poem",
+        "recipe for", "tell me a joke", "who are you", "what is the meaning of",
+        "blah blah", "xyz123"
+    ]
+    for otp in off_topic_patterns:
+        if otp in clean_lower and len(words) <= 6:
+            return True, f"Non-clinical filler text '{otp}' detected."
+
+    # 6. Domain vocabulary presence check for non-trivial inputs
+    ORTHOPAEDIC_ONTOLOGY = {
+        "bone", "bones", "femur", "femoral", "cortex", "cortical", "diaphyseal", "diaphysis",
+        "callus", "osteoporotic", "osteoporosis", "osteopenia", "osteopenic",
+        "trabecular", "cancellous", "periosteal", "periosteum", "fracture", "fractures", "gap",
+        "knee", "hip", "tka", "tha", "stem", "periprosthetic", "segmental",
+        "transverse", "oblique", "spiral", "comminuted", "refracture", "non-union",
+        "delayed", "union", "osteotomy", "osteosarcoma", "sarcoma", "bisphosphonate",
+        "patient", "elderly", "athlete", "athletic", "trauma", "dialysis", "radiation",
+        "irradiated", "weight", "obese", "obesity", "gait", "leg", "limb", "healing",
+        "biology", "biological", "tissue", "implant", "implants", "plate", "plates", "screw", "screws",
+        "fixation", "osteosynthesis", "stiff", "stiffness", "rigid", "rigidity",
+        "compliant", "compliance", "flexible", "flexure", "motion", "micro-motion", "micromotion",
+        "displacement", "deflection", "strain", "stress", "shielding", "load", "loading",
+        "torsion", "torsional", "shear", "bending", "axial", "pullout", "yield",
+        "fatigue", "safety", "fos", "strength", "ductile", "ductility", "endurance",
+        "titanium", "steel", "ti-6al-4v", "316l", "alloy", "metal", "tpms", "lattice",
+        "porosity", "porous", "density", "mass", "cell", "primitive", "gyroid", "diamond",
+        "fillet", "pitch", "spacing", "span", "bridge", "skin", "thickness", "schwarz", "schoen",
+        "cost", "cheap", "affordable"
+    }
+
+    token_set = set(re.findall(r"[a-z0-9\-\_]+", clean_lower))
+    has_domain_term = bool(token_set & ORTHOPAEDIC_ONTOLOGY)
+    has_numerical_spec = bool(re.search(r"\b\d+(?:\.\d+)?\s*(?:mm|um|µm|%|gpa|mpa|n|kn|yr|yo|years?)\b", clean_lower))
+
+    if len(words) >= 3 and not has_domain_term and not has_numerical_spec:
+        return True, "Input lacks identifiable orthopaedic, anatomical, or biomechanical context."
+
+    if len(words) < 2 and not has_domain_term and not has_numerical_spec:
+        return True, f"Single-word non-clinical prompt '{clean}' lacks biomechanical context."
+
+    return False, ""
+
+
+def create_safe_baseline_request(prompt: str, reason: str) -> DesignRequest:
+    """Returns a certified safe default design request when anomalous input is provided."""
+    snippet = prompt.strip()[:40] + ("..." if len(prompt.strip()) > 40 else "")
+    return DesignRequest(
+        objective="Safe Clinical Baseline (Callus Stimulation)",
+        target_fracture_displacement=0.00020,
+        max_mass=0.60,
+        recommended_material="Ti-6Al-4V (Grade 5 Titanium)",
+        recommended_tpms="Schwarz Primitive (P)",
+        fillet_radius_mm=1.2,
+        screw_spacing_mm=14.5,
+        clinical_rationale=(
+            f"🛡️ [Gibberish / Non-Clinical Guardrail Activated]: {reason} "
+            f"Safely defaulted to standard secondary callus fixation baseline (0.20mm micro-motion, Ti-6Al-4V Grade 5, Schwarz Primitive lattice) to ensure patient safety."
+        ),
+        is_gibberish=True,
+        warning_message=f"Non-clinical or unintelligible input: {reason} Defaulted to certified AO Foundation clinical baseline."
+    )
 
 
 SYSTEM_PROMPT = """You are an expert Orthopaedic Biomechanics AI Agent specializing in patient-specific implant co-design.
@@ -358,12 +459,20 @@ def _parse_with_local_nlp(user_prompt: str) -> DesignRequest:
 
 def parse_design_request(user_prompt: str) -> DesignRequest:
     """
-    Parses a clinical user prompt with robust multi-tiered fallback:
+    Parses a clinical user prompt with robust multi-tiered fallback and gibberish protection:
+    0. Gibberish / Non-Clinical Anomaly Guardrail
     1. Groq LPU (Ultra-fast structured output with Llama 3.3 70B)
     2. Google Gemini (Advanced multi-modal reasoning with Gemini 2.5 Flash)
     3. Local Biomechanical NLP (Deterministic regex parameter extraction)
     """
     from src.utils.logger import log_user_prompt_and_llm_response
+
+    # 0. Pre-flight Gibberish & Non-Clinical Anomaly Guardrail
+    is_anomalous, anomaly_reason = detect_prompt_anomaly(user_prompt)
+    if is_anomalous:
+        safe_req = create_safe_baseline_request(user_prompt, anomaly_reason)
+        log_user_prompt_and_llm_response(user_prompt, safe_req, engine="Gibberish Guardrail (Safety Fallback)")
+        return safe_req
     
     # Reload from .env if needed
     groq_key = os.getenv("GROQ_API_KEY")

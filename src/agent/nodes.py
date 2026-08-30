@@ -104,6 +104,32 @@ def clinical_interpreter_node(state: DesignState) -> dict:
     prompt = state["surgeon_prompt"]
     messages = list(state.get("messages", []))
 
+    # Pre-flight Gibberish & Non-Clinical Anomaly Guardrail
+    from src.agent.agent import detect_prompt_anomaly
+    is_anomalous, anomaly_reason = detect_prompt_anomaly(prompt)
+    if is_anomalous:
+        result = {
+            "target_micro_motion_m": 0.00020,
+            "loading_pattern": "axial_bending",
+            "healing_timeline_months": 6,
+            "patient_demographics": "Standard Adult (Safety Baseline)",
+            "clinical_objective": "Safe Clinical Baseline (Callus Stimulation)",
+            "contraindications": ["Non-clinical or unintelligible prompt provided"],
+            "clinical_reasoning": f"🛡️ [Gibberish Guardrail Activated]: {anomaly_reason} Defaulting to certified 0.20mm micro-motion baseline to guarantee patient safety.",
+            "is_gibberish": True,
+            "warning_message": anomaly_reason
+        }
+        messages.append(create_message(
+            "clinical_interpreter",
+            f"🛡️ **Clinical Safety Guardrail Activated**\n\n"
+            f"**Observation:** {anomaly_reason}\n\n"
+            f"Input prompt lacks intelligible orthopaedic/biomechanical parameters. "
+            f"Safely engaging certified AO Foundation clinical baseline (**0.20 mm target micro-motion**, **axial-bending** loading, standard callus stimulation).",
+            "result",
+            data=result,
+        ))
+        return {"clinical_profile": result, "messages": messages}
+
     messages.append(create_message(
         "clinical_interpreter",
         f"Analyzing clinical case: \"{prompt}\"",
