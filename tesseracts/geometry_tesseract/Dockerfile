@@ -7,7 +7,7 @@ ENV PYTHONUNBUFFERED=1 \
     PYTHONDONTWRITEBYTECODE=1 \
     XLA_FLAGS="--xla_cpu_multi_thread_eigen=false" \
     XLA_PYTHON_CLIENT_PREALLOCATE=false \
-    XLA_PYTHON_CLIENT_MEM_FRACTION=0.25 \
+    XLA_PYTHON_CLIENT_MEM_FRACTION=0.35 \
     JAX_PLATFORMS=cpu \
     OMP_NUM_THREADS=4 \
     MKL_NUM_THREADS=4 \
@@ -20,15 +20,12 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     git \
     && rm -rf /var/lib/apt/lists/*
 
-# 2. Optimized dependency caching layer
 COPY tesseracts/geometry_tesseract/tesseract_requirements.txt /app/requirements.txt
 RUN pip install --no-cache-dir -r /app/requirements.txt
 
-# 3. Targeted directory copies
-COPY src/ /app/src/
-COPY tesseracts/ /app/tesseracts/
+COPY src/fem/ /app/src/fem/
+COPY tesseracts/geometry_tesseract/ /app/tesseracts/geometry_tesseract/
 
-# 4. Pre-compile Python bytecode at build time
 RUN python -m compileall /app
 
 EXPOSE 8001
