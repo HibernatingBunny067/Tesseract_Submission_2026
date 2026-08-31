@@ -288,7 +288,16 @@ The Streamlit interface offers two ways to work:
 git clone -b main --single-branch https://github.com/HibernatingBunny067/Tesseract_Submission_2026.git
 cd Tesseract_Submission_2026
 ```
+```bash
+# 1. Create and activate virtual environment
+python -m venv .venv
+source .venv/bin/activate  
+# WSL/Linux: source .venv/bin/activate
+# Windows: .\venv\Scripts\Activate.ps1 (in terminal)
 
+# 2. Install dependencies
+pip install -r REQUIREMENTS.txt
+```
 ---
 
 ### 9.2 Deployment Modes Comparison Matrix
