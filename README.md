@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="images/latest.png" alt="Tesseract Differentiable Biomechanics Banner" width="100%" style="border-radius: 8px;" />
+  <img src="images/demo.png" alt="Tesseract Differentiable Biomechanics Banner" width="100%" style="border-radius: 8px;" />
 </p>
 
 # 🦴 Femuract - Tesseract based Differentiable Biomechanics Engine
