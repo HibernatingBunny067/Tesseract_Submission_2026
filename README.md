@@ -1,8 +1,8 @@
 <p align="center">
-  <img src="images/demo_latest.png" alt="Tesseract Differentiable Biomechanics Banner" width="100%" style="border-radius: 8px;" />
+  <img src="images/latest.png" alt="Tesseract Differentiable Biomechanics Banner" width="100%" style="border-radius: 8px;" />
 </p>
 
-# 🦴 Tesseract: Differentiable Biomechanics
+# 🦴 Femuract - Tesseract based Differentiable Biomechanics Engine
 ### Multi-Agent AI Design of Patient-Specific Orthopaedic Metamaterial Implants
 
 [![License: Apache 2.0](https://img.shields.io/badge/License-Apache_2.0-blue.svg)](https://opensource.org/licenses/Apache-2.0)
@@ -24,11 +24,12 @@
 5. [Two-Stage Mathematical Optimization](#5-two-stage-mathematical-optimization)
 6. [Virtual Safety & Regulatory Testing](#6-virtual-safety--regulatory-testing)
 7. [User Dashboard](#7-user-dashboard)
-8. [Quick Start Guide](#8-quick-start-guide)
-9. [Clinical Case Studies](#9-clinical-case-studies)
-10. [Repository Structure](#10-repository-structure)
-11. [Future Roadmap](#11-future-roadmap)
-12. [Team & Acknowledgments](#12-team--acknowledgments)
+8. [System Demo & Video Walkthrough](#8-system-demo--video-walkthrough)
+9. [Quick Start Guide](#9-quick-start-guide)
+10. [Clinical Case Studies](#10-clinical-case-studies)
+11. [Repository Structure](#11-repository-structure)
+12. [Future Roadmap](#12-future-roadmap)
+13. [Team & Acknowledgments](#13-team--acknowledgments)
 
 ---
 
@@ -264,9 +265,23 @@ The Streamlit interface offers two ways to work:
 
 **Live Feedback:** Real-time charts track the optimization loss, micro-motion convergence, and 3D color-coded views of Von Mises stress and Factor of Safety directly on the implant.
 
-## 8. Quick Start Guide
+---
 
-### 8.1 Deployment Modes Comparison Matrix
+## 8. System Demo & Video Walkthrough
+
+<p align="center">
+  <a href="https://youtu.be/YOUR_DEMO_VIDEO" target="_blank">
+    <img src="images/latest.png" alt="Femuract Demo Video" width="100%" style="border-radius: 8px; box-shadow: 0 4px 20px rgba(0,0,0,0.5);" />
+  </a>
+</p>
+
+> 🎥 **Demo Walkthrough Video:** Watch the end-to-end multi-agent clinical workflow, real-time JAX-FEM adjoint optimization, 3D TPMS stress visualization, and ASTM F382 compliance verification in action.
+
+---
+
+## 9. Quick Start Guide
+
+### 9.1 Deployment Modes Comparison Matrix
 
 | Mode | Target Audience | Docker Required? | `.env` / API Key Required? | Build Time | Command |
 | :--- | :--- | :---: | :---: | :---: | :--- |
@@ -366,7 +381,7 @@ All 3 modes operate **completely out-of-the-box with zero API keys**. However, i
 
 ---
 
-## 9. Clinical Case Studies
+## 10. Clinical Case Studies
 
 | Scenario | Surgeon's Goal | Resulting Design | Safety Check |
 | :--- | :--- | :--- | :--- |
@@ -377,7 +392,7 @@ All 3 modes operate **completely out-of-the-box with zero API keys**. However, i
 
 ---
 
-## 10. Repository Structure
+## 11. Repository Structure
 ```text
 Tesseract_Submission_2026/
 ├── app.py                  # Main Streamlit dashboard
@@ -405,14 +420,14 @@ Tesseract_Submission_2026/
 
 ---
 
-## 11. Future Roadmap
+## 12. Future Roadmap
 - **Direct CT/MRI Import:** Automatically extract bone shape directly from patient hospital DICOM scans.
 - **Multi-Material Printing:** Transitioning from rigid titanium on the outside to flexible, biocompatible plastics (like PEEK) on the inside.
 - **Smart Implants:** Designing space within the lattice to embed tiny MEMS sensors that track healing progress in real-time.
 
 ---
 
-## 12. Team & Acknowledgments
+## 13. Team & Acknowledgments
 Developed with ❤️ for the **Tesseract Hackathon 2026**.
 
 * **[Dr. Suparno Bhattacharya](https://www.linkedin.com/in/suparnob/)** — Faculty Advisor & Principal Investigator

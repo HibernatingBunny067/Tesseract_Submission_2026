@@ -85,12 +85,19 @@ st.markdown(build_css(), unsafe_allow_html=True)
 # Main hero banner
 st.markdown(
     hero_banner(
-        title="🦴 Tesseract Differentiable Simulation",
+        title="🦴 FEMURACT - Differentiable Biomechanics Engine",
         subtitle="Agentic Biomechanical Implant Optimization · Dual Tesseract REST Engines · WSD Adam Optimizer",
-        accent_word="Differentiable Simulation",
+        accent_word="FEMURACT",
     ),
     unsafe_allow_html=True,
 )
+
+# System Architecture & Overview Banner
+app_img_path = os.path.join(os.path.dirname(__file__), "images", "app.png")
+if os.path.exists(app_img_path):
+    _, img_col, _ = st.columns([2.2, 5.6, 2.2])
+    with img_col:
+        st.image(app_img_path, use_container_width=True)
 
 # Dual Tesseract Microservices live health badges
 st.markdown(
@@ -354,7 +361,10 @@ $$\mathcal{L}_{\text{CAD}} = 2 \left( 22 \cdot \frac{\delta - \delta^*}{\delta^*
 **Stage 2 · JAX-FEM Adjoint Loss:**
 $$\mathcal{L}_{\text{TPMS}} = \mathcal{L}_{\text{motion}} + c \mathcal{C}(u) + w \mathcal{L}_{\text{mass}} + \mathcal{B}_{\text{geom}} + \mathcal{B}_{\text{FoS}}$$
 
-FoS ≥ 1.50× under 750 N gait · Skin ≥ 0.35 mm
+*FoS ≥ 1.50× under 750 N gait · Skin ≥ 0.35 mm*
+
+---
+🔗 [Detailed Mathematical Formulation](https://github.com/HibernatingBunny067/Tesseract_Submission_2026/tree/main#5-two-stage-mathematical-optimization)
     """)
 
 st.sidebar.markdown("---")
