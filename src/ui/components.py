@@ -10,15 +10,26 @@ from src.fem.materials import Biomaterial
 from src.fem.validation import ClinicalValidationReport
 
 
+import os
+import base64
+
 # ---------------------------------------------------------------------------
 # Hero Banner
 # ---------------------------------------------------------------------------
-def hero_banner(title: str, subtitle: str, accent_word: str = "") -> str:
+def hero_banner(title: str, subtitle: str, accent_word: str = "", logo_path: str = "") -> str:
     """Full-width gradient hero section."""
     if accent_word:
         title = title.replace(accent_word, f'<span class="accent">{accent_word}</span>')
+    
+    logo_html = ""
+    if logo_path and os.path.exists(logo_path):
+        with open(logo_path, "rb") as f:
+            b64_str = base64.b64encode(f.read()).decode()
+        logo_html = f'<div style="text-align: center; margin-bottom: 0.8rem;"><img src="data:image/png;base64,{b64_str}" style="max-height: 90px; max-width: 340px; object-fit: contain;" alt="Femuract Logo"/></div>'
+
     return (
         f'<div class="hero-banner">'
+        f'{logo_html}'
         f'<h1>{title}</h1>'
         f'<p>{subtitle}</p>'
         f'</div>'

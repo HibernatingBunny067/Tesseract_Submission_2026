@@ -83,11 +83,13 @@ st.set_page_config(page_title="Tesseract BioMechanics", page_icon="🦴", layout
 st.markdown(build_css(), unsafe_allow_html=True)
 
 # Main hero banner
+logo_img_path = os.path.join(os.path.dirname(__file__), "images", "logo.png")
 st.markdown(
     hero_banner(
-        title="🦴 FEMURACT - Differentiable Biomechanics Engine",
+        title="Differentiable Biomechanics Engine",
         subtitle="Agentic Biomechanical Implant Optimization · Dual Tesseract REST Engines · WSD Adam Optimizer",
-        accent_word="FEMURACT",
+        accent_word="Differentiable",
+        logo_path=logo_img_path,
     ),
     unsafe_allow_html=True,
 )
