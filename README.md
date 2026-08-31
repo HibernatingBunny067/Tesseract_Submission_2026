@@ -282,7 +282,16 @@ The Streamlit interface offers two ways to work:
 
 ## 9. Quick Start Guide
 
-### 9.1 Deployment Modes Comparison Matrix
+### 9.1 Clone Repository (`main` branch)
+```bash
+# Clone the clean main submission branch
+git clone -b main --single-branch https://github.com/HibernatingBunny067/Tesseract_Submission_2026.git
+cd Tesseract_Submission_2026
+```
+
+---
+
+### 9.2 Deployment Modes Comparison Matrix
 
 | Mode | Target Audience | Docker Required? | `.env` / API Key Required? | Build Time | Command |
 | :--- | :--- | :---: | :---: | :---: | :--- |
