@@ -293,7 +293,7 @@ cd Tesseract_Submission_2026
 python -m venv .venv
 source .venv/bin/activate  
 # WSL/Linux: source .venv/bin/activate
-# Windows: .\venv\Scripts\Activate.ps1 (in terminal)
+# Windows: .\.venv\Scripts\Activate.ps1 (in terminal)
 
 # 2. Install dependencies
 pip install -r REQUIREMENTS.txt
