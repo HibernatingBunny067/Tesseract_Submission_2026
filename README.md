@@ -55,13 +55,16 @@ Standard solid metal bone plates (Titanium or Stainless Steel) create a fundamen
 
 ### 1.2 The Governing Rules of Bone Healing
 Our system is designed around two proven medical principles:
-* **Perren's Interfragmentary Strain Theory:** Successful healing requires cyclic micro-motion ($\delta$) across the fracture gap within a specific target window:
+
+**1. Perren's Interfragmentary Strain Theory:**  
+Successful healing requires cyclic micro-motion ($\delta$) across the fracture gap within a specific target window:
 
 $$
 0.15\text{ mm} \le \delta \le 0.35\text{ mm} \quad (\varepsilon_{\text{gap}} = 7.5\% - 17.5\% \text{ for a } 2.0\text{ mm gap})
 $$
 
-* **Wolff's Law of Bone Remodeling:** Fixation devices must transfer at least **55% of the physiological load** back to the bone to preserve its density.
+**2. Wolff's Law of Bone Remodeling:**  
+Fixation devices must transfer at least **55% of the physiological load** back to the bone to preserve its density and prevent stress shielding.
 
 ### 1.3 The Tesseract Solution
 We autonomously design a **Functionally Graded Metamaterial Bone Plate**. It features a porous, 3D lattice core sandwiched between solid outer layers:
@@ -153,7 +156,7 @@ To guarantee the system never crashes during a demo or clinical use:
 ## 5. Two-Stage Mathematical Optimization
 
 ### 5.1 Stage 1: Macro Shape Morphing (PyGeM FFD)
-First, we bend the overall plate to match the patient's bone. We use a 5x4x4 control grid governed by trivariate Bernstein polynomials:
+First, we bend the overall plate to match the patient's bone geometry using a $5 \times 4 \times 4$ control grid governed by trivariate Bernstein polynomials:
 
 $$
 \Psi(X) = \sum_{l=0}^{4} \sum_{m=0}^{3} \sum_{n=0}^{3} B_l^4(s) B_m^3(t) B_n^3(u) \cdot \mathbf{P}_{l,m,n}
@@ -162,55 +165,66 @@ $$
 *What this does: It smoothly warps the 3D mesh so the plate sits flush against the patient's unique anatomy.*
 
 ### 5.2 Stage 2: Micro-Lattice Optimization (JAX-FEM Adjoint)
-Next, we optimize the 12 internal parameters ($\theta$) controlling pore size, skin thickness, and blend smoothness. The AI minimizes a composite loss function:
+Next, we optimize the 12 internal parameters ($\boldsymbol{\theta}$) controlling pore size, skin thickness, and blend smoothness. The optimizer minimizes a multi-objective loss function:
 
 $$
-\min_{\theta} \mathcal{L}_{\text{TPMS}}(\theta) = \mathcal{L}_{\text{motion}}(\theta) + c_{\text{comp}} \mathcal{C}(u) + w_{\text{mass}} \mathcal{L}_{\text{mass}}(\theta) + \mathcal{B}_{\text{geom}}(\theta) + \mathcal{B}_{\text{FoS}}(\theta)
+\min_{\boldsymbol{\theta}} \mathcal{L}_{\text{TPMS}}(\boldsymbol{\theta}) = \mathcal{L}_{\text{motion}}(\boldsymbol{\theta}) + c_{\text{comp}} \mathcal{C}(\mathbf{u}) + w_{\text{mass}} \mathcal{L}_{\text{mass}}(\boldsymbol{\theta}) + \mathcal{B}_{\text{geom}}(\boldsymbol{\theta}) + \mathcal{B}_{\text{FoS}}(\boldsymbol{\theta})
 $$
 
-**Breaking down the math (The Rules the AI Follows):**
+#### Mathematical Loss Components
 
-* **Micro-Motion Target Penalty:**
-  $$
-  \mathcal{L}_{\text{motion}}(\theta) = 2.0 \left( 22.0 \cdot \frac{\delta_{\text{achieved}}(\theta) - \delta_{\text{target}}}{\delta_{\text{target}}} \right)^2
-  $$
-  *Penalizes designs that deviate from the exact clinical micro-motion healing window.*
+**1. Micro-Motion Target Penalty:**
 
-* **Compliance (Strain Energy Distribution):**
-  $$
-  \mathcal{C}(u) = \frac{1}{2} u^T K(\theta) u
-  $$
-  *Encourages optimal structural load transmission across the fixation plate.*
+$$
+\mathcal{L}_{\text{motion}}(\boldsymbol{\theta}) = 2.0 \left( 22.0 \cdot \frac{\delta_{\text{achieved}}(\boldsymbol{\theta}) - \delta_{\text{target}}}{\delta_{\text{target}}} \right)^2
+$$
 
-* **Mass Budget Constraint Barrier:**
-  $$
-  \mathcal{L}_{\text{mass}}(\theta) = 12.0 \cdot \max\left(0, \frac{\text{Mass}(\theta)}{\text{Mass}_{\text{solid}}} - \text{MaxMass}\right)^2
-  $$
-  *Prevents the implant from exceeding the patient's targeted mass budget.*
+*Penalizes designs that deviate from the exact clinical micro-motion healing window.*
 
-* **Safety Factor Barrier ($\text{FoS} \ge 1.75$):**
-  $$
-  \mathcal{B}_{\text{FoS}}(\theta) = 75.0 \cdot \max\left(0, 1.75 - \frac{\sigma_{\text{yield}}}{\sigma_{\text{peak}}(\theta)}\right)^2
-  $$
-  *Strictly penalizes any parameter set that risks yielding or plastic deformation under full gait loading.*
+**2. Compliance (Strain Energy Distribution):**
+
+$$
+\mathcal{C}(\mathbf{u}) = \frac{1}{2} \mathbf{u}^T \mathbf{K}(\boldsymbol{\theta}) \mathbf{u}
+$$
+
+*Encourages optimal structural load transmission across the fixation plate.*
+
+**3. Mass Budget Constraint Barrier:**
+
+$$
+\mathcal{L}_{\text{mass}}(\boldsymbol{\theta}) = 12.0 \cdot \max\left(0, \frac{\text{Mass}(\boldsymbol{\theta})}{\text{Mass}_{\text{solid}}} - \text{MaxMass}\right)^2
+$$
+
+*Prevents the implant from exceeding the patient's targeted mass budget.*
+
+**4. Safety Factor Barrier ($\text{FoS} \ge 1.75$):**
+
+$$
+\mathcal{B}_{\text{FoS}}(\boldsymbol{\theta}) = 75.0 \cdot \max\left(0, 1.75 - \frac{\sigma_{\text{yield}}}{\sigma_{\text{peak}}(\boldsymbol{\theta})}\right)^2
+$$
+
+*Strictly penalizes any parameter set that risks yielding or plastic deformation under full gait loading.*
 
 ### 5.3 Porous Lattice Shapes (TPMS)
-The internal structure uses mathematically defined minimal surfaces, where titanium exists where $F(\mathbf{x}) \le \tau(\mathbf{x})$:
+The internal structure uses mathematically defined minimal surfaces, where solid titanium exists where $F(\mathbf{x}) \le \tau(\mathbf{x})$:
 
-* **Schwarz Primitive ($P$):** High fluid permeability for rapid vascularization and bone ingrowth:
-  $$
-  F_P(\mathbf{x}) = \cos\left(\frac{2\pi x}{d}\right) + \cos\left(\frac{2\pi y}{d}\right) + \cos\left(\frac{2\pi z}{d}\right)
-  $$
+**Schwarz Primitive ($P$):** High fluid permeability for rapid vascularization and bone ingrowth:
 
-* **Schoen Gyroid ($G$):** Excellent isotropic compliance and shear resistance:
-  $$
-  F_G(\mathbf{x}) = 1.5 \left[ \sin\left(\frac{2\pi x}{d}\right)\cos\left(\frac{2\pi y}{d}\right) + \sin\left(\frac{2\pi y}{d}\right)\cos\left(\frac{2\pi z}{d}\right) + \sin\left(\frac{2\pi z}{d}\right)\cos\left(\frac{2\pi x}{d}\right) \right]
-  $$
+$$
+F_P(\mathbf{x}) = \cos\left(\frac{2\pi x}{d}\right) + \cos\left(\frac{2\pi y}{d}\right) + \cos\left(\frac{2\pi z}{d}\right)
+$$
 
-* **Schwarz Diamond ($D$):** Maximal torsional rigidity for high-stress spiral fractures:
-  $$
-  F_D(\mathbf{x}) = 1.8 \left[ \cos\left(\frac{2\pi x}{d}\right)\cos\left(\frac{2\pi y}{d}\right)\cos\left(\frac{2\pi z}{d}\right) - \sin\left(\frac{2\pi x}{d}\right)\sin\left(\frac{2\pi y}{d}\right)\sin\left(\frac{2\pi z}{d}\right) \right]
-  $$
+**Schoen Gyroid ($G$):** Excellent isotropic compliance and shear resistance:
+
+$$
+F_G(\mathbf{x}) = \sin\left(\frac{2\pi x}{d}\right)\cos\left(\frac{2\pi y}{d}\right) + \sin\left(\frac{2\pi y}{d}\right)\cos\left(\frac{2\pi z}{d}\right) + \sin\left(\frac{2\pi z}{d}\right)\cos\left(\frac{2\pi x}{d}\right)
+$$
+
+**Schwarz Diamond ($D$):** Maximal torsional rigidity for high-stress spiral fractures:
+
+$$
+F_D(\mathbf{x}) = \cos\left(\frac{2\pi x}{d}\right)\cos\left(\frac{2\pi y}{d}\right)\cos\left(\frac{2\pi z}{d}\right) - \sin\left(\frac{2\pi x}{d}\right)\sin\left(\frac{2\pi y}{d}\right)\sin\left(\frac{2\pi z}{d}\right)
+$$
 
 ### 5.4 Smooth Blending & Material Properties
 To prevent stress concentrations, we blend the 5 zones smoothly using continuous Gaussian weighting:
