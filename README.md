@@ -26,7 +26,7 @@
 7. [User Dashboard](#7-user-dashboard)
 8. [System Demo & Video Walkthrough](#8-system-demo--video-walkthrough)
 9. [Quick Start Guide](#9-quick-start-guide)
-10. [Clinical Case Studies](#10-clinical-case-studies)
+10. [Clinical Case Studies & Validation Specimens](#10-clinical-case-studies--validation-specimens)
 11. [Repository Structure](#11-repository-structure)
 12. [Future Roadmap](#12-future-roadmap)
 13. [Team & Acknowledgments](#13-team--acknowledgments)
@@ -270,12 +270,13 @@ The Streamlit interface offers two ways to work:
 ## 8. System Demo & Video Walkthrough
 
 <p align="center">
-  <a href="https://youtu.be/YOUR_DEMO_VIDEO" target="_blank">
-    <img src="images/latest.png" alt="Femuract Demo Video" width="100%" style="border-radius: 8px; box-shadow: 0 4px 20px rgba(0,0,0,0.5);" />
+  <a href="https://drive.google.com/drive/folders/1uxVvnfRt0eDZlhtcMd-Z7j3nn2Jcylip?usp=sharing" target="_blank">
+    <img src="images/demo.png" alt="Femuract Demo Video Walkthrough" width="100%" style="border-radius: 8px; box-shadow: 0 4px 20px rgba(0,0,0,0.5);" />
   </a>
 </p>
 
-> 🎥 **Demo Walkthrough Video:** Watch the end-to-end multi-agent clinical workflow, real-time JAX-FEM adjoint optimization, 3D TPMS stress visualization, and ASTM F382 compliance verification in action.
+> 🎥 **[Watch Full High-Resolution Demo Video on Google Drive](https://drive.google.com/drive/folders/1uxVvnfRt0eDZlhtcMd-Z7j3nn2Jcylip?usp=sharing)**  
+> *Demonstrating the end-to-end multi-agent clinical workflow, real-time JAX-FEM adjoint optimization convergence, 3D TPMS stress visualization, and ASTM F382 compliance verification in action.*
 
 ---
 
@@ -287,7 +288,7 @@ The Streamlit interface offers two ways to work:
 | :--- | :--- | :---: | :---: | :---: | :--- |
 | **Option A: Pre-Built GHCR** | **Judges & Evaluators** | Yes | **❌ No (100% Omitted)** | **0 sec** (Pulls in ~5s) | `./scripts/run_prebuilt.sh` |
 | **Option B: Source Build** | **Developers** | Yes | **❌ No (100% Omitted)** | ~1–2 min (Builds images) | `./scripts/run_docker.sh` |
-| **Option C: Pure Local Python** | **Zero-Docker Users** | **❌ No** | **❌ No (100% Omitted)** | **0 sec** (In-process) | `./scripts/run.sh` |
+| **Option C: Pure Local Python** | **Zero-Docker Users** | **❌ No** *(WSL on Windows)* | **❌ No (100% Omitted)** | **0 sec** (In-process) | `./scripts/run.sh` |
 
 ---
 
@@ -350,13 +351,14 @@ streamlit run app.py
 ### Option C: Pure Local Python Setup (100% Native · Zero Docker Required)
 > Runs the entire platform in a single, in-process Python session with zero-copy shared memory and zero container overhead.
 
-* **Prerequisites:** Python 3.10+ (No Docker or virtualization required).
+* **Prerequisites:** Python 3.10+ (macOS & Linux native).
+* **🪟 Windows Note:** Windows users running in native local mode require **Windows Subsystem for Linux (WSL / WSL2 with Ubuntu)** to run the JAX-FEM simulation tensor dependencies.
 * **Environment Keys (`.env`):** **NOT NEEDED / OMITTED by default.**
 
 ```bash
 # 1. Create and activate virtual environment
 python -m venv .venv
-source .venv/bin/activate  # On Windows: .venv\Scripts\activate
+source .venv/bin/activate  # In WSL/Linux: source .venv/bin/activate
 
 # 2. Install dependencies
 pip install -r REQUIREMENTS.txt
@@ -381,12 +383,17 @@ All 3 modes operate **completely out-of-the-box with zero API keys**. However, i
 
 ---
 
-## 10. Clinical Case Studies
+## 10. Clinical Case Studies & Validation Specimens
+
+<p align="center">
+  <img src="images/specimen_01.png" alt="Clinical Validation Specimen 01" width="48%" style="border-radius: 6px; margin-right: 2%; box-shadow: 0 2px 10px rgba(0,0,0,0.3);" />
+  <img src="images/specimen_02.png" alt="Clinical Validation Specimen 02" width="48%" style="border-radius: 6px; box-shadow: 0 2px 10px rgba(0,0,0,0.3);" />
+</p>
 
 | Scenario | Surgeon's Goal | Resulting Design | Safety Check |
 | :--- | :--- | :--- | :--- |
-| **Standard Healing** | "Allow 0.20mm movement to stimulate callus." | Titanium, 48% lighter, flexible center. | ✅ **PASS** (FoS: 4.78×) |
-| **Elderly Patient** | "Highly porous plate to prevent bone weakening." | Titanium, 56% lighter, extra flexible. | ✅ **PASS** (Load Transfer: 64.2%) |
+| **Standard Healing (Specimen 01)** | "Allow 0.20mm movement to stimulate callus." | Titanium, 48% lighter, flexible center. | ✅ **PASS** (FoS: 4.78×) |
+| **Elderly Patient (Specimen 02)** | "Highly porous plate to prevent bone weakening." | Titanium, 56% lighter, extra flexible. | ✅ **PASS** (Load Transfer: 64.2%) |
 | **Young Athlete** | "Rigid, high-strength plate for stable fixation." | Stainless Steel, dense structure. | ✅ **PASS** (FoS: 1.96×) |
 | **Complex Revision** | *"76yo, obese, weak bone, previous failed surgery."* (No technical specs provided) | AI inferred needs: Titanium, 51% lighter, highly reinforced. | ✅ **PASS** (FoS: 2.45×) |
 
